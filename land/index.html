@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#ff6fa8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="컬러 타마">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>컬러 다마고치</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background: linear-gradient(135deg, #1b1b2f 0%, #162447 100%);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    color: #222; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; padding: max(12px, env(safe-area-inset-top)) 0 max(12px, env(safe-area-inset-bottom));
+  }
+  .device {
+    width: min(380px, calc(100vw - 10px)); background: linear-gradient(160deg, #ff6fa8, #ff9bc1);
+    border-radius: 190px 190px 170px 170px / 200px 200px 150px 150px;
+    padding: 46px 28px 34px; box-shadow: 0 25px 60px rgba(0,0,0,.5), inset 0 -8px 20px rgba(0,0,0,.15), inset 0 6px 12px rgba(255,255,255,.4);
+    position: relative;
+  }
+  .brand { text-align: center; font-weight: 900; letter-spacing: 3px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.25); font-size: 14px; margin-bottom: 10px; }
+  .screen-frame { background: #3b2a3a; border-radius: 18px; padding: 10px; box-shadow: inset 0 3px 8px rgba(0,0,0,.6); }
+  .screen { background: #cfe8d8; border-radius: 10px; overflow: hidden; position: relative; }
+  canvas { display: block; width: 100%; image-rendering: pixelated; }
+  #cv, .dex-cell canvas { image-rendering: auto; }
+  .hud { display: flex; justify-content: space-between; padding: 6px 10px 2px; font-size: 11px; font-weight: 700; color: #2d4a3a; }
+  .stats { padding: 4px 10px 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+  .stat { font-size: 10px; color: #2d4a3a; font-weight: 700; }
+  .bar { height: 7px; background: #a9c9b5; border-radius: 4px; overflow: hidden; margin-top: 2px; }
+  .bar i { display: block; height: 100%; border-radius: 4px; transition: width .4s; }
+  .msg { position: absolute; top: 30px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.92); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; color: #333; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; z-index: 2; }
+  .msg.show { opacity: 1; }
+  .buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+  button {
+    border: none; border-radius: 14px; padding: 12px 4px; font-size: 13px; font-weight: 800; cursor: pointer;
+    background: #fff5fa; color: #c2185b; box-shadow: 0 4px 0 #d9457f, 0 6px 10px rgba(0,0,0,.2); transition: transform .05s, box-shadow .05s;
+  }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 #d9457f; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button span { display: block; font-size: 18px; }
+  .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 10px; color: #fff; opacity: .9; }
+  .footer a { color: #fff; cursor: pointer; text-decoration: underline; margin-left: 9px; }
+  .footer a.speed { background: rgba(255,255,255,.25); padding: 2px 7px; border-radius: 8px; text-decoration: none; font-weight: 800; }
+  .overlay { position: absolute; inset: 0; background: rgba(20,20,40,.9); color: #fff; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; gap: 10px; z-index: 3; }
+  .overlay.show { display: flex; }
+  .overlay h2 { font-size: 20px; }
+  .overlay p { font-size: 11px; line-height: 1.6; opacity: .9; white-space: pre-line; }
+  .overlay input { padding: 8px 12px; border-radius: 8px; border: none; font-size: 14px; text-align: center; width: 180px; }
+  .overlay button { padding: 8px 20px; font-size: 12px; }
+  .palette { display: flex; gap: 8px; justify-content: center; }
+  .swatch { width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; display:flex; align-items:center; justify-content:center; font-size: 14px; }
+  .swatch.sel { border-color: #fff; }
+  /* 패널 (도감/상점) */
+  .panel { position: absolute; inset: 0; background: #2b2540; color: #fff; display: none; flex-direction: column; z-index: 3; }
+  .panel.show { display: flex; }
+  .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 12px; font-weight: 800; background: #1c1830; }
+  .panel-head a { cursor: pointer; text-decoration: underline; font-weight: 400; }
+  .panel-body { overflow-y: auto; padding: 8px; flex: 1; }
+  .sec-title { font-size: 11px; font-weight: 800; margin: 6px 0 4px; }
+  .dex-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .dex-cell { background: rgba(255,255,255,.08); border-radius: 8px; padding: 4px 2px; text-align: center; font-size: 9px; line-height: 1.2; }
+  .dex-cell canvas { width: 40px; height: 40px; margin: 0 auto 2px; }
+  .dex-cell.locked { opacity: .45; }
+  .note { font-size: 9px; opacity: .8; line-height: 1.5; margin-top: 8px; }
+  .shop-row { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.08); border-radius: 8px; padding: 4px 8px; margin-bottom: 4px; font-size: 10px; }
+  .shop-row canvas { width: 32px; height: 32px; flex: none; background: rgba(0,0,0,.2); border-radius: 4px; }
+  .shop-row .nm { flex: 1; font-weight: 700; }
+  .shop-row .nm small { display: block; font-weight: 400; opacity: .7; }
+  .shop-row button { padding: 5px 10px; font-size: 10px; border-radius: 8px; box-shadow: 0 2px 0 #d9457f; }
+  .shop-row button.on { background: #ffd93d; color: #5a3a00; box-shadow: 0 2px 0 #b89b00; }
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="brand">COLOR TAMA</div>
+  <div class="screen-frame">
+    <div class="screen">
+      <div class="hud"><span id="hudName">-</span><span id="hudStage">-</span><span id="hudAge">0일</span><span id="hudPts">💖 0</span></div>
+      <canvas id="cv" width="480" height="330"></canvas>
+      <div class="stats">
+        <div class="stat">🍖 배고픔 <div class="bar"><i id="bHunger" style="background:#ff8a4c"></i></div></div>
+        <div class="stat">😊 행복 <div class="bar"><i id="bHappy" style="background:#ffc93c"></i></div></div>
+        <div class="stat">⚡ 에너지 <div class="bar"><i id="bEnergy" style="background:#4cc9f0"></i></div></div>
+        <div class="stat">❤️ 건강 <div class="bar"><i id="bHealth" style="background:#f0567a"></i></div></div>
+      </div>
+      <div class="msg" id="msg"></div>
+      <div class="overlay" id="overlay">
+        <h2 id="ovTitle">🥚 새 알이 도착했어요!</h2>
+        <p id="ovText">이름을 정하고 속성 색을 골라주세요.</p>
+        <input id="nameInput" maxlength="8" placeholder="이름 (최대 8자)" value="타마">
+        <div class="palette" id="palette"></div>
+        <p id="elHint" style="font-size:10px"></p>
+        <button id="ovBtn">시작하기</button>
+      </div>
+      <div class="panel" id="dex">
+        <div class="panel-head"><span>📖 진화 도감 <span id="dexCount"></span></span><a id="dexClose">닫기 ✕</a></div>
+        <div class="panel-body" id="dexBody"></div>
+      </div>
+      <div class="panel" id="shop">
+        <div class="panel-head"><span>🛍️ 꾸미기 상점 <span id="shopPts"></span></span><a id="shopClose">닫기 ✕</a></div>
+        <div class="panel-body" id="shopBody"></div>
+      </div>
+    </div>
+  </div>
+  <div class="buttons">
+    <button id="btnFeed"><span>🍖</span>밥주기</button>
+    <button id="btnPlay"><span>🎮</span>놀기</button>
+    <button id="btnSleep"><span>💤</span>잠자기</button>
+    <button id="btnClean"><span>🧹</span>청소</button>
+    <button id="btnMed"><span>💊</span>치료</button>
+    <button id="btnShop"><span>🛍️</span>꾸미기</button>
+  </div>
+  <div class="footer"><span id="saveInfo">자동 저장</span><span><a class="speed" id="speedBtn">⏩ 1x</a><a id="lightBtn">조명</a><a id="dexBtn">도감</a><a id="resetBtn">초기화</a></span></div>
+</div>
+
+<script>
+(() => {
+  const SAVE_KEY = 'colorTama_v3';
+  const DEX_KEY = 'colorTama_dex';
+  const SHOP_KEY = 'colorTama_shop';
+  const STAGES = [
+    { name: '알', minAge: 0 }, { name: '아기', minAge: 1 }, { name: '어린이', minAge: 3 }, { name: '어른', minAge: 7 },
+  ];
+  const GAME_DAY_MS = 1000 * 60 * 60;       // 게임 1일 = (1배속 기준) 실시간 1시간
+  const SPEEDS = [1, 10, 60];
+
+  // ================= 속성 & 진화 데이터 =================
+  const ELEMENTS = [
+    { id: 'fire',  name: '불',     icon: '🔥', color: '#ff8c42' },
+    { id: 'water', name: '물',     icon: '💧', color: '#4ecdc4' },
+    { id: 'elec',  name: '전기',   icon: '⚡', color: '#ffd93d' },
+    { id: 'grass', name: '풀',     icon: '🌿', color: '#6bcb77' },
+    { id: 'dark',  name: '어둠',   icon: '🌙', color: '#a78bfa' },
+    { id: 'fairy', name: '페어리', icon: '🌸', color: '#ff6b9d' },
+  ];
+  const BRANCHES = ['기본', '정성', '튼튼', '민첩', '그늘'];
+  const BRANCH_HINT = ['균형 있게 키우기', '배고픔·행복 평균 80 이상 유지', '체중 9g 이상 (많이 먹이기)', '놀기 25회 이상 또는 체중 4g 이하', '질병 2회 이상 또는 건강 40 미만'];
+
+  // 스프라이트 16x16. B=몸 D=어두운몸 L=밝은몸 A=포인트1 S=포인트2 E=눈 W=흰색 .=투명
+  const SHAPES = {
+    trex: ['................','.....BBBBBB.....','....BBEBBBBB....','....BBBBBBBB....','....BDDDDDB.....','....BBBBBW......','...BBBBBB.......','..BBBBBBB.......','.B.BBAABB.......','B..BBBBBBB......','...BBBBBBBB.....','...BBBBBBBBB....','....BBB..BBB....','....DD....DD....','...DDD...DDD....','................'],
+    dragon: ['.......BBBB.....','......BBEBBB....','..A...BBBBBBB...','.AA...BDDDB.....','AAA..BBBBB......','.AAA.BBBBB......','..AAABBBBB......','...AABBBBBB.....','....BBBBBBB.....','...BBBBBBBBB....','..B.BBBBBBBB....','.B..BBB..BBB....','B...DD....DD....','....DDD..DDD....','................','................'],
+    turtle: ['................','................','.....AAAAAA.....','....AASSSSAA....','...AASAAAASAA...','...ASSAAAASSA...','...AAAAAAAAAA...','..BAAAAAAAAAAB..','.BBBBBBBBBBBBBB.','BEBBBBBBBBBBBBB.','BBBB..........BB','.BB.BB......BB..','....DD......DD..','................','................','................'],
+    fox: ['..B.......B.....','..BB.....BB.....','..BBB...BBB.....','..BBBBBBBBB.....','..BEBBBBBEB.....','..BBBBWBBBB.....','...BBBBBBB......','....BBBBB.......','...BBBBBBBB..AA.','..BBBBBBBBBBAAA.','..BBBBBBBBBBAA..','..BBBBBBBBBAA...','..BB.BB..BB.....','..DD.DD..DD.....','................','................'],
+    ghost: ['................','.....BBBBBB.....','....BBBBBBBB....','...BBBBBBBBBB...','...BBEBBBBEBB...','...BBBBBBBBBB...','...BBBBDDBBBB...','...BBBBBBBBBB...','...BBBBBBBBBB...','...BBBBBBBBBB...','...BBBBBBBBBB...','...BBBBBBBBBB...','...BB.BBBB.BB...','...B...BB...B...','................','................'],
+    plesio: ['.....BBB........','....BEBBB.......','....BBBBB.......','.....BB.........','.....BB.........','.....BB.........','.....BB.........','....BBBB........','..BBBBBBBBBB....','.BBBBBBBBBBBBB..','BBBBBBBBBBBBBBB.','.BBBBBBBBBBBBB..','..BB..BBBB..BB..','..AA........AA..','................','................'],
+    serpent: ['....BBBBB.......','...BBEBBBB......','...BBBBBBB......','...BBDDBB.......','....BBBB........','....BBBB........','.....BBBB.......','......BBBB......','.......BBBB.....','........BBBB....','....BBBBBBBB....','...BBBBBBBB.....','...BBBBBBB......','....BBBBB.......','................','................'],
+    frog: ['................','................','...BB......BB...','..BEBB....BBEB..','..BBBBBBBBBBBB..','..BBBBBBBBBBBB..','..BBBBBBBBBBBB..','..BBDDDDDDDDBB..','...BBBBBBBBBB...','..BBBLLLLLLBBB..','..BBLLLLLLLLBB..','..BBBLLLLLLBBB..','.BBB..BBBB..BBB.','.DDD........DDD.','................','................'],
+    dolphin: ['................','........AA......','.......AAA......','......BBBBBBB...','....BBBBBBBBBB..','..BBBBBBBBBBBBB.','.BBEBBBBBBBBBBBB','BBBBBBBBBBBBBBB.','.BBBLLLLLLLLBB..','..BBBLLLLLLBBB.A','....BBBB..BBBBAA','....AA.....BBAA.','...AA...........','................','................','................'],
+    angler: ['......A.........','.....A..........','.....A..........','....AA..........','...BBBBBBBB.....','..BBBBBBBBBBB...','.BBWEBBBBBBBBB..','.BBBBBBBBBBBBBBA','.BWWWWWBBBBBBBBA','.BBBBBBBBBBBBBB.','..BBBBBBBBBBB...','...BBBBBBBBB....','.....BB..BB.....','................','................','................'],
+    raptor: ['................','.....BBBBBB.....','....BBEBBBBB....','....BBBBBBBBB...','....BDDDDBB.....','.....BBBB.......','.....BBBBB......','....BBBBBBB.....','...BBBBBBBBB....','..B.BBBBBBBBB...','.B...BBBBBBBBBB.','B....BBB..BBB.BB','.....BB....BB...','.....DD....DD...','....DDD...DDD...','................'],
+    mouse: ['..BBB....BBB....','.BAAAB..BAAAB...','.BAAAB..BAAAB...','..BBBBBBBBBB....','...BBBBBBBB.....','..BBEBBBBEBB....','..BBBBBBBBBB....','..SBBBBWBBBBS...','..SBBBBBBBBBS...','...BBBBBBBB.....','..BBBBBBBBBBB...','..BBBBBBBBBBB.A.','..BBBBBBBBBBAA..','..BB.BB..BB.A...','..DD.DD..DD.....','................'],
+    humming: ['................','.....A..........','.....AA.........','......AA........','..BBB..AABBB....','.BBEBBBBBBBBBB..','.BBBBBBBBBBBBB..','WWBBBBBBBBBBBB..','..BBBBBBBBBBB...','...BBBBBBBBB....','....BBBBBBB.....','.....BBBBBBB....','......BBBBBB....','........BB..BB..','........BB...BB.','................'],
+    cloud: ['................','................','.....BBBB.......','....BBBBBBB.....','..BBBBBBBBBBB...','.BBBBEBBBBEBBB..','.BBBBBBBBBBBBB..','BBBBBBBBDDBBBBB.','BBBBBBBBBBBBBBB.','.BBBBBBBBBBBBB..','..BBBBBBBBBBB...','.....A..A.......','....A..A........','....A.A.........','...A.A..........','................'],
+    tricera: ['................','..A.............','.AA..AA..AA.....','.AAAAAAAAAAA....','..AAAAAAAAAA....','..ABBBBBBBBA....','...BEBBBBBB.....','...BBBBBBBBBBBB.','..BBBBBBBBBBBBBB','.BBBBBBBBBBBBBBB','.BBBBBBBBBBBBB..','..BBB.BB..BB.BB.','..DD..DD..DD.DD.','................','................','................'],
+    bronto: ['...BBB..........','..BEBBB.........','..BBBBB.........','...BB...........','...BB...........','...BB...........','...BB...........','...BBB..........','...BBBBBBBBB....','..BBBBBBBBBBBB..','..BBBBBBBBBBBBB.','..BBBBBBBBBBBBBB','..BBB.BB..BB.BB.','..DD..DD..DD.DD.','................','................'],
+    deer: ['.A.......A......','.AA..A..AA......','..AA.A.AA.......','...AAAAA........','....BBB.........','...BEBBB........','...BBBBB........','....BB..........','....BBBBBBBBB...','...BBBBBBBBBBB..','...BBSBBBBSBBB..','...BBBBBBBBBBB..','...BB.BB..BB.BB.','...BB.BB..BB.BB.','...DD.DD..DD.DD.','................'],
+    toad: ['.....AAAAAA.....','...AASAAAASAA...','..AAAAAASAAAAA..','...BB..SS..BB...','..BEBB....BBEB..','..BBBBBBBBBBBB..','..BBBBBBBBBBBB..','..BBDDDDDDDDBB..','...BBBBBBBBBB...','..BBBLLLLLLBBB..','..BBLLLLLLLLBB..','..BBBLLLLLLBBB..','.BBB..BBBB..BBB.','.DDD........DDD.','................','................'],
+    butterfly: ['..AAAA....AAAA..','.AAAAAA..AAAAAA.','AAAAAAAA.AAAAAAA','AAASAAAA.AAAASAA','AAAAAAABBBAAAAAA','.AAAAABBEBBAAAA.','..AAAABBBBBAAA..','...AA.BBBBB.AA..','......BBBBB.....','..SSSS.BBB.SSSS.','.SSSSSSBBBSSSSSS','.SSSSSSBBBSSSSSS','..SSSS.BBB.SSSS.','.......BBB......','........B.......','................'],
+    bat: ['................','.....B...B......','....BB...BB.....','....BBBBBBB.....','A...BEBBBEB...A.','AA..BBBBBBB..AA.','AAA.BBBDBBB.AAA.','AAAABBBBBBBAAAA.','AAAAABBBBBAAAAA.','.AAAABBBBBAAAA..','..AA.BBBBB.AA...','.....BBBBB......','.....B.B.B......','................','................','................'],
+    ankylo: ['................','................','....A.A.A.A.....','...AAAAAAAAAA...','..BAAAAAAAAAAB..','.BBBBBBBBBBBBBBB','BEBBBBBBBBBBBBBB','BBBBBBBBBBBBBBB.','.BBBBBBBBBBBBB.A','..BB.BB..BB.BBAA','..DD.DD..DD.DD.A','................','................','................','................','................'],
+    cat: ['..B.......B.....','..BB.....BB.....','..BBB...BBB.....','..BBBBBBBBB.....','..BEBBBBBEB.....','..BBBBWBBBB.....','...BBBBBBB......','....BBBBB.......','...BBBBBBBBB....','...BBBBBBBBB..B.','...BBBBBBBBB.BB.','...BBBBBBBBBBB..','...BB.BB..BB....','...DD.DD..DD....','................','................'],
+    wolf: ['................','....B.....B.....','....BB...BB.....','....BBBBBBB.....','....BEBBBEB.....','....BBBBBBB.....','.....BBWBBBBBB..','....BBBBBBBBBBB.','...BBBBBBBBBBBB.','..BBBBBBBBBBBBB.','.B.BBBBBBBBBBBB.','B..BB.BB..BB.BB.','...DD.DD..DD.DD.','................','................','................'],
+    jelly: ['................','.....BBBBBB.....','....BBBBBBBB....','...BBBBBBBBBB...','...BBEBBBBEBB...','...BBBBBBBBBB...','...BBBBBBBBBB...','....BBBBBBBB....','....A.A..A.A....','....A.A..A.A....','.....A.A..A.....','....A.A..A.A....','....A.A..A.A....','.....A..A.......','................','................'],
+    unicorn: ['.....A..........','....AA..........','...BBBB.........','..BEBBBS........','..BBBBBSS.......','...BBBBSS.......','...BBB.SS.......','...BBBBBBBBBB...','..BBBBBBBBBBBB..','..BBBBBBBBBBBBS.','..BBBBBBBBBBBSS.','..BB.BB..BB.BBS.','..BB.BB..BB.BB..','..DD.DD..DD.DD..','................','................'],
+    ptera: ['................','BB..............','BBBB.......AAAA.','.BBBBB...AAAAAAA','..BBEBBBAAAAAAAA','...BBBBBAAAAAAA.','.....BBBBAAAAA..','......BBBBAAA...','......BBBBBB....','.......BBBBB....','.......BBBB.....','.......BB.BB....','......DD...DD...','................','................','................'],
+    rabbit: ['....BB...BB.....','....BLB.BLB.....','....BLB.BLB.....','....BLB.BLB.....','....BBBBBBB.....','...BBBBBBBBB....','...BEBBBBBEB....','...BBBBWBBBB....','....BBBBBBB.....','...BBBBBBBBB.A..','..BBBBBBBBBBAAA.','..BBBBBBBBBB.A..','..BBBBBBBBBB....','...BB.BB.BB.....','...DD.DD.DD.....','................'],
+    sheep: ['................','..LLLLLLLLLLLL..','.LLLLLLLLLLLLLL.','LLLLLLLLLLLLLLLL','LLLLLLLLLLLLLLLL','LBBBBLLLLLLLLLLL','LBEBBBLLLLLLLLLL','LBBBBBLLLLLLLLLL','.BBBBLLLLLLLLLL.','..LLLLLLLLLLLL..','...LLLLLLLLLL...','...DD.DD.DD.DD..','...DD.DD.DD.DD..','................','................','................'],
+    cookie: ['....A......A....','...AAA....AAA...','...AAAA..AAAA...','....AABBBBAA....','....ABBBBBBA....','...BBBEBBEBBB...','...BBBBBBBBBB...','...BBBBWWBBBB...','...BSBBBBBBSB...','...BBBBBBBBBB...','....BBSBBSBB....','.....BBBBBB.....','......B..B......','.....DD..DD.....','................','................'],
+  };
+  // 스프라이트 바운딩박스 캐시 (머리 위치 계산용)
+  const BOUNDS = {};
+  for (const k in SHAPES) {
+    const rows = SHAPES[k]; let minR = 16, maxR = -1, minC = 16, maxC = -1;
+    rows.forEach((r, ri) => { for (let c = 0; c < 16; c++) if (r[c] !== '.') { minR = Math.min(minR, ri); maxR = Math.max(maxR, ri); minC = Math.min(minC, c); maxC = Math.max(maxC, c); } });
+    // 머리: 눈(E)이 있는 행 기준 좌우 스팬
+    let eyeR = rows.findIndex(r => r.includes('E')); if (eyeR < 0) eyeR = minR + 2;
+    const er = rows[eyeR]; let hs = 16, he = -1;
+    for (let c = 0; c < 16; c++) if (er[c] !== '.') { hs = Math.min(hs, c); he = Math.max(he, c); }
+    // 눈 행에서 연속 덩어리 중 E를 포함하는 덩어리만
+    const ei = er.indexOf('E'); let s = ei, e = ei; while (s > 0 && er[s - 1] !== '.') s--; while (e < 15 && er[e + 1] !== '.') e++;
+    BOUNDS[k] = { minR, maxR, minC, maxC, headCX: (s + e + 1) / 2, headW: e - s + 1, eyeR, topR: Math.max(minR, eyeR - 3) };
+  }
+
+  const SPECIES = {
+    fire: [
+      { name: '티라노볼케', shape: 'trex', pal: { B: '#ff6b35', D: '#b03a12', L: '#ffb08a', A: '#ffd23f', S: '#fff' } },
+      { name: '플레어드래곤', shape: 'dragon', pal: { B: '#e63946', D: '#8d1e2a', L: '#ff8c8c', A: '#ff9f1c', S: '#fff' } },
+      { name: '마그마거북', shape: 'turtle', pal: { B: '#ff8c42', D: '#a84c12', L: '#ffc49b', A: '#3d2b1f', S: '#ff4d00' } },
+      { name: '불꽃여우', shape: 'fox', pal: { B: '#ff7b25', D: '#b8480e', L: '#ffd1a6', A: '#ffe066', S: '#fff' } },
+      { name: '잿더미유령', shape: 'ghost', pal: { B: '#6b5b73', D: '#ff5722', L: '#9b8ba3', A: '#ff5722', S: '#fff' } },
+    ],
+    water: [
+      { name: '플레시오', shape: 'plesio', pal: { B: '#2ec4b6', D: '#157f74', L: '#9cf1ea', A: '#157f74', S: '#fff' } },
+      { name: '아쿠아서펀트', shape: 'serpent', pal: { B: '#0096c7', D: '#023e8a', L: '#90e0ef', A: '#48cae4', S: '#fff' } },
+      { name: '거품개구리', shape: 'frog', pal: { B: '#4ecdc4', D: '#1a8f87', L: '#d8fffc', A: '#fff', S: '#fff' } },
+      { name: '파도돌고래', shape: 'dolphin', pal: { B: '#4895ef', D: '#2b5fb8', L: '#dbeeff', A: '#2b5fb8', S: '#fff' } },
+      { name: '심해아귀', shape: 'angler', pal: { B: '#1b2a49', D: '#0b1226', L: '#3c4d7a', A: '#7cf7ff', S: '#fff' } },
+    ],
+    elec: [
+      { name: '번개랩터', shape: 'raptor', pal: { B: '#ffd93d', D: '#c49a00', L: '#fff3b0', A: '#fff', S: '#fff' } },
+      { name: '썬더드래곤', shape: 'dragon', pal: { B: '#ffc300', D: '#b58600', L: '#ffe680', A: '#7fdbff', S: '#fff' } },
+      { name: '스파크쥐', shape: 'mouse', pal: { B: '#ffe14d', D: '#c9a800', L: '#fff8c2', A: '#ff8fa3', S: '#ff8fa3' } },
+      { name: '번개벌새', shape: 'humming', pal: { B: '#ffdd00', D: '#b89b00', L: '#fff4a3', A: '#5dd9ff', S: '#fff' } },
+      { name: '정전기구름', shape: 'cloud', pal: { B: '#cfd8dc', D: '#546e7a', L: '#fff', A: '#ffd600', S: '#fff' } },
+    ],
+    grass: [
+      { name: '트리케라', shape: 'tricera', pal: { B: '#6bcb77', D: '#3a8a46', L: '#b8f0bd', A: '#c8a96e', S: '#fff' } },
+      { name: '꽃사슴', shape: 'deer', pal: { B: '#a3c48b', D: '#5f8a4a', L: '#d9f0c8', A: '#ff8fab', S: '#ffd166' } },
+      { name: '브론토', shape: 'bronto', pal: { B: '#4d9f5b', D: '#2a6b36', L: '#9fd6a8', A: '#2a6b36', S: '#fff' } },
+      { name: '잎날개나비', shape: 'butterfly', pal: { B: '#3d6b2e', D: '#243f1b', L: '#8fd47d', A: '#8fd47d', S: '#ffe066' } },
+      { name: '버섯두꺼비', shape: 'toad', pal: { B: '#7a8b5a', D: '#4a5636', L: '#c4cf9e', A: '#c0392b', S: '#fff' } },
+    ],
+    dark: [
+      { name: '밤늑대', shape: 'wolf', pal: { B: '#6c5b9c', D: '#3b2f66', L: '#b4a3e6', A: '#fff', S: '#fff' } },
+      { name: '박쥐룡', shape: 'bat', pal: { B: '#7b4fb3', D: '#4b2a7a', L: '#c6a3ff', A: '#3b2459', S: '#fff' } },
+      { name: '안킬로섀도', shape: 'ankylo', pal: { B: '#5a4a8a', D: '#2f2450', L: '#9c8ccf', A: '#d8c3ff', S: '#fff' } },
+      { name: '유령고양이', shape: 'cat', pal: { B: '#b19cd9', D: '#6f58a8', L: '#e7dcff', A: '#fff', S: '#fff' } },
+      { name: '공허해파리', shape: 'jelly', pal: { B: '#4a3f7a', D: '#2a2250', L: '#8c7cc9', A: '#d884ff', S: '#fff' } },
+    ],
+    fairy: [
+      { name: '핑크프테라', shape: 'ptera', pal: { B: '#ff6b9d', D: '#b8386a', L: '#ffc2d8', A: '#ffd6e8', S: '#fff' } },
+      { name: '유니콘', shape: 'unicorn', pal: { B: '#fff0f5', D: '#d9a3b8', L: '#fff', A: '#ffd700', S: '#ff8fc8' } },
+      { name: '솜사탕양', shape: 'sheep', pal: { B: '#ffb3c6', D: '#c76d8a', L: '#ffe4ec', A: '#fff', S: '#fff' } },
+      { name: '스타토끼', shape: 'rabbit', pal: { B: '#ffa6c9', D: '#c7608f', L: '#ffe0ee', A: '#ffd700', S: '#fff' } },
+      { name: '요정쿠키', shape: 'cookie', pal: { B: '#d9a066', D: '#8f5a2b', L: '#f5d6b0', A: '#ffb3d9', S: '#5c3a1e' } },
+    ],
+  };
+
+  // ================= 꾸미기 아이템 =================
+  // 착용 아이템: 8칸 폭 픽셀맵. slot: hat(머리) face(얼굴) neck(목) outfit(옷)
+  const ITEMS = [
+    { id: 'sunglass', slot: 'face', name: '선글라스', price: 50, map: ['KKKKKKKK', 'KKK..KKK'], pal: { K: '#111' } },
+    { id: 'glasses', slot: 'face', name: '동그란 안경', price: 50, map: ['.GG..GG.', 'G..GG..G', '.GG..GG.'], pal: { G: '#444' } },
+    { id: 'bow', slot: 'hat', name: '리본', price: 60, map: ['RR....RR', 'RRRPPRRR', 'RR.PP.RR', '.R....R.'], pal: { R: '#ff5c8a', P: '#ffd1dc' } },
+    { id: 'straw', slot: 'hat', name: '밀짚모자', price: 80, map: ['..YYYY..', '..YBBY..', 'YYYYYYYY'], pal: { Y: '#e8c872', B: '#8b5a2b' } },
+    { id: 'party', slot: 'hat', name: '파티모자', price: 90, map: ['...RR...', '..RYRR..', '..RRRR..', '.RYRRYR.', '.RRRRRR.'], pal: { R: '#ff6b6b', Y: '#ffe66d' } },
+    { id: 'bowtie', slot: 'neck', name: '나비넥타이', price: 70, map: ['BB....BB', 'BBBBBBBB', 'BB....BB'], pal: { B: '#1d3557' } },
+    { id: 'scarf', slot: 'neck', name: '빨간 스카프', price: 90, map: ['RRRRRRRR', '.RRRRRR.', '..RR....', '..RR....'], pal: { R: '#e63946' } },
+    { id: 'pearl', slot: 'neck', name: '진주 목걸이', price: 150, map: ['W.W.W.W.', '.W.W.W.W'], pal: { W: '#fff' } },
+    { id: 'tshirt', slot: 'outfit', name: '티셔츠', price: 100, map: ['BBBBBBBB', 'BBBWWBBB', 'BBBWWBBB', 'BBBBBBBB'], pal: { B: '#4895ef', W: '#fff' } },
+    { id: 'poncho', slot: 'outfit', name: '줄무늬 판초', price: 150, map: ['YYYYYYYY', 'GGGGGGGG', 'RRRRRRRR', 'YYYYYYYY'], pal: { Y: '#ffe066', G: '#2ec4b6', R: '#ff6b6b' } },
+    { id: 'cape', slot: 'outfit', name: '영웅 망토', price: 250, map: ['GGGGGGGG', 'RRRRRRRR', 'RRRRRRRR', 'RRRRRRRR', 'RR.RR.RR'], pal: { G: '#ffd700', R: '#c1121f' } },
+    { id: 'wizard', slot: 'hat', name: '마법사 모자', price: 250, map: ['...PP...', '...PP...', '..PPPP..', '..PSPP..', '.PPPPPP.', 'PPPPPPPP'], pal: { P: '#6a4c93', S: '#ffd700' } },
+    { id: 'crown', slot: 'hat', name: '왕관', price: 400, map: ['G..GG..G', 'GG.GG.GG', 'GGGGGGGG', 'GRGGGGRG'], pal: { G: '#ffd700', R: '#ff3b3b' } },
+  ];
+  // 장식: 방에 배치. effect는 tick에서 참조
+  const DECOS = [
+    { id: 'pot', name: '화분', price: 40, desc: '귀여운 초록이', map: ['..GG..', '.GGGG.', '..GG..', '.BBBB.', '..BB..'], pal: { G: '#4caf50', B: '#c0642b' }, x: 142, y: 68, s: 2 },
+    { id: 'flowers', name: '꽃밭', price: 60, desc: '행복 감소 -10%', effect: 'happy' },
+    { id: 'fence', name: '울타리', price: 80, desc: '아늑한 마당' },
+    { id: 'rug', name: '러그', price: 100, desc: '행복 감소 -10%', effect: 'happy' },
+    { id: 'umbrella', name: '우산 스탠드', price: 120, desc: '비 올 때 불이익 없음', effect: 'rain', map: ['.RRRRRR.', 'RRPRRPRR', '...BB...', '...BB...', '...BB...', '..BBB...'], pal: { R: '#ff5c8a', P: '#ffd1dc', B: '#555' }, x: 40, y: 58, s: 2.5 },
+    { id: 'lamp', name: '가로등', price: 150, desc: '밤에 환해요', map: ['.YYY.', '.YYY.', '..B..', '..B..', '..B..', '..B..', '..B..', '.BBB.'], pal: { Y: '#fff3a0', B: '#444' }, x: 136, y: 44, s: 2.5 },
+    { id: 'sign', name: '이름 간판', price: 150, desc: '이름을 걸어둬요' },
+    { id: 'garland', name: '별 조명', price: 200, desc: '행복 감소 -10%', effect: 'happy' },
+    { id: 'tree', name: '큰 나무', price: 250, desc: '그늘이 시원해요', map: ['...GGG...', '..GGGGG..', '.GGGGGGG.', 'GGGGGGGGG', '.GGGGGGG.', '..GGGGG..', '....BB...', '....BB...', '....BB...'], pal: { G: '#3a9d4a', B: '#7a4a1e' }, x: 8, y: 30, s: 3 },
+  ];
+  const WEATHERS = [
+    { id: 'sunny', icon: '☀️', name: '맑음', happyMul: 0.85 },
+    { id: 'cloudy', icon: '☁️', name: '흐림', happyMul: 1.0 },
+    { id: 'rain', icon: '🌧️', name: '비', happyMul: 1.4 },
+    { id: 'snow', icon: '❄️', name: '눈', happyMul: 1.1 },
+    { id: 'rainbow', icon: '🌈', name: '무지개', happyMul: 0.6 },
+  ];
+
+  // ================= 3D 스프라이트 (Blender 렌더) =================
+  const SPAN = 2.8;   // 스프라이트 한 칸이 덮는 3D 단위
+  const FINAL_ID = {"fire": ["tyranovolke", "flare_dragon", "magma_turtle", "flame_fox", "ash_ghost"], "water": ["plesio", "aqua_serpent", "bubble_frog", "wave_dolphin", "deep_angler"], "elec": ["thunder_raptor", "thunder_dragon", "spark_mouse", "bolt_hummingbird", "static_cloud"], "grass": ["tricera", "flower_deer", "bronto", "leaf_butterfly", "mushroom_toad"], "dark": ["night_wolf", "bat_dragon", "ankylo_shadow", "ghost_cat", "void_jelly"], "fairy": ["pink_ptera", "unicorn", "candy_sheep", "star_rabbit", "fairy_cookie"]};
+  const ANCH = {"egg_fire":{"eye":[0.4419,0.3684],"top":[0.4598,0.4921],"gnd":[0.5,0.2283],"bbox":[0.3766,0.2069,0.6234,0.5223]},"egg_water":{"eye":[0.4419,0.3684],"top":[0.4598,0.4921],"gnd":[0.5,0.2283],"bbox":[0.3766,0.2069,0.6234,0.5223]},"egg_elec":{"eye":[0.4419,0.3684],"top":[0.4598,0.4921],"gnd":[0.5,0.2283],"bbox":[0.3766,0.2069,0.6234,0.5223]},"egg_grass":{"eye":[0.4419,0.3684],"top":[0.4598,0.4921],"gnd":[0.5,0.2283],"bbox":[0.3766,0.2069,0.6234,0.5223]},"egg_dark":{"eye":[0.4419,0.3684],"top":[0.4598,0.4921],"gnd":[0.5,0.2283],"bbox":[0.3766,0.2069,0.6234,0.5223]},"egg_fairy":{"eye":[0.4419,0.3684],"top":[0.4598,0.4921],"gnd":[0.5,0.2283],"bbox":[0.3766,0.2069,0.6234,0.5223]},"baby_fire":{"eye":[0.4589,0.3123],"top":[0.4768,0.3748],"gnd":[0.5,0.2283],"bbox":[0.4044,0.2076,0.5956,0.4017]},"baby_water":{"eye":[0.4589,0.3123],"top":[0.4768,0.3748],"gnd":[0.5,0.2283],"bbox":[0.4044,0.2076,0.5956,0.4017]},"baby_elec":{"eye":[0.4589,0.3123],"top":[0.4768,0.3748],"gnd":[0.5,0.2283],"bbox":[0.4044,0.2076,0.5956,0.4017]},"baby_grass":{"eye":[0.4589,0.3123],"top":[0.4768,0.3748],"gnd":[0.5,0.2283],"bbox":[0.4044,0.2076,0.5956,0.4017]},"baby_dark":{"eye":[0.4589,0.3123],"top":[0.4768,0.3748],"gnd":[0.5,0.2283],"bbox":[0.4044,0.2076,0.5956,0.4017]},"baby_fairy":{"eye":[0.4589,0.3123],"top":[0.4768,0.3748],"gnd":[0.5,0.2283],"bbox":[0.4044,0.2076,0.5956,0.4017]},"child_fire":{"eye":[0.4473,0.3359],"top":[0.4652,0.4576],"gnd":[0.5,0.2283],"bbox":[0.3774,0.2018,0.6226,0.492]},"child_water":{"eye":[0.4473,0.3359],"top":[0.4652,0.4576],"gnd":[0.5,0.2283],"bbox":[0.3774,0.2018,0.6226,0.492]},"child_elec":{"eye":[0.4473,0.3359],"top":[0.4652,0.4576],"gnd":[0.5,0.2283],"bbox":[0.3774,0.2018,0.6226,0.492]},"child_grass":{"eye":[0.4473,0.3359],"top":[0.4652,0.4576],"gnd":[0.5,0.2283],"bbox":[0.3774,0.2018,0.6226,0.492]},"child_dark":{"eye":[0.4473,0.3359],"top":[0.4652,0.4576],"gnd":[0.5,0.2283],"bbox":[0.3774,0.2018,0.6226,0.492]},"child_fairy":{"eye":[0.4473,0.3359],"top":[0.4652,0.4576],"gnd":[0.5,0.2283],"bbox":[0.3774,0.2018,0.6226,0.492]},"tyranovolke":{"eye":[0.4223,0.5264],"top":[0.4402,0.6168],"gnd":[0.5,0.2283],"bbox":[0.3147,0.1947,0.688,0.66]},"flare_dragon":{"eye":[0.4407,0.5074],"top":[0.4586,0.6361],"gnd":[0.5,0.2283],"bbox":[0.3259,0.2061,0.7741,0.6805]},"magma_turtle":{"eye":[0.3943,0.346],"top":[0.4121,0.4462],"gnd":[0.5,0.2283],"bbox":[0.3375,0.2107,0.7022,0.5492]},"flame_fox":{"eye":[0.3961,0.4857],"top":[0.4139,0.6407],"gnd":[0.5,0.2283],"bbox":[0.3242,0.2168,0.7144,0.6765]},"ash_ghost":{"eye":[0.4509,0.4397],"top":[0.4688,0.6276],"gnd":[0.5,0.2283],"bbox":[0.3452,0.2242,0.6334,0.6411]},"plesio":{"eye":[0.3634,0.6171],"top":[0.3812,0.6674],"gnd":[0.5,0.2283],"bbox":[0.2841,0.1954,0.7524,0.7025]},"aqua_serpent":{"eye":[0.4175,0.5374],"top":[0.4354,0.6352],"gnd":[0.5,0.2283],"bbox":[0.3552,0.1982,0.7666,0.6669]},"bubble_frog":{"eye":[0.4571,0.4091],"top":[0.475,0.4425],"gnd":[0.5,0.2283],"bbox":[0.2966,0.1858,0.7018,0.4569]},"wave_dolphin":{"eye":[0.4211,0.3814],"top":[0.4389,0.5115],"gnd":[0.5,0.2283],"bbox":[0.353,0.2833,0.7136,0.5567]},"deep_angler":{"eye":[0.4354,0.3812],"top":[0.4532,0.5786],"gnd":[0.5,0.2283],"bbox":[0.3286,0.2481,0.647,0.5703]},"thunder_raptor":{"eye":[0.4045,0.527],"top":[0.4223,0.6275],"gnd":[0.5,0.2283],"bbox":[0.3177,0.1972,0.708,0.683]},"thunder_dragon":{"eye":[0.4407,0.5074],"top":[0.4586,0.6361],"gnd":[0.5,0.2283],"bbox":[0.3259,0.2061,0.7741,0.6805]},"spark_mouse":{"eye":[0.4443,0.5093],"top":[0.4621,0.6462],"gnd":[0.5,0.2283],"bbox":[0.3571,0.2061,0.6304,0.6883]},"bolt_hummingbird":{"eye":[0.4461,0.5187],"top":[0.4639,0.6098],"gnd":[0.5,0.2283],"bbox":[0.3177,0.325,0.7109,0.633]},"static_cloud":{"eye":[0.4473,0.4718],"top":[0.4652,0.6172],"gnd":[0.5,0.2283],"bbox":[0.299,0.2296,0.7019,0.6612]},"tricera":{"eye":[0.3777,0.4006],"top":[0.3955,0.5417],"gnd":[0.5,0.2283],"bbox":[0.3054,0.2019,0.705,0.6737]},"flower_deer":{"eye":[0.405,0.5361],"top":[0.4229,0.7067],"gnd":[0.5,0.2283],"bbox":[0.3275,0.2195,0.6462,0.7371]},"bronto":{"eye":[0.3639,0.6326],"top":[0.3818,0.6813],"gnd":[0.5,0.2283],"bbox":[0.3128,0.202,0.7613,0.7151]},"leaf_butterfly":{"eye":[0.4675,0.5505],"top":[0.4854,0.6943],"gnd":[0.5,0.2283],"bbox":[0.2926,0.2981,0.7432,0.7107]},"mushroom_toad":{"eye":[0.4571,0.4091],"top":[0.475,0.5155],"gnd":[0.5,0.2283],"bbox":[0.3345,0.1858,0.7018,0.5507]},"night_wolf":{"eye":[0.3946,0.4946],"top":[0.4125,0.6332],"gnd":[0.5,0.2283],"bbox":[0.3236,0.2068,0.7012,0.6698]},"bat_dragon":{"eye":[0.4496,0.5478],"top":[0.4675,0.7102],"gnd":[0.5,0.2283],"bbox":[0.1688,0.3092,0.8526,0.7378]},"ankylo_shadow":{"eye":[0.3871,0.3344],"top":[0.405,0.388],"gnd":[0.5,0.2283],"bbox":[0.3251,0.2012,0.7535,0.5533]},"ghost_cat":{"eye":[0.4032,0.4827],"top":[0.4211,0.6242],"gnd":[0.5,0.2283],"bbox":[0.2878,0.2202,0.6786,0.6581]},"void_jelly":{"eye":[0.442,0.4961],"top":[0.4598,0.5906],"gnd":[0.5,0.2283],"bbox":[0.3399,0.2552,0.6601,0.6233]},"pink_ptera":{"eye":[0.4509,0.5179],"top":[0.4688,0.5682],"gnd":[0.5,0.2283],"bbox":[0.1691,0.2062,0.8488,0.6607]},"unicorn":{"eye":[0.3996,0.5546],"top":[0.4175,0.7195],"gnd":[0.5,0.2283],"bbox":[0.3279,0.217,0.656,0.7187]},"candy_sheep":{"eye":[0.4086,0.4103],"top":[0.4264,0.5116],"gnd":[0.5,0.2283],"bbox":[0.3267,0.2084,0.7102,0.5987]},"star_rabbit":{"eye":[0.4443,0.5093],"top":[0.4621,0.7286],"gnd":[0.5,0.2283],"bbox":[0.3736,0.2061,0.6347,0.7623]},"fairy_cookie":{"eye":[0.4711,0.4234],"top":[0.4889,0.5406],"gnd":[0.5,0.2283],"bbox":[0.3434,0.2169,0.7027,0.6251]}};
+  const SPR = {};
+  function sprite(id) { if (!SPR[id]) { const i = new Image(); i.src = 'sprites/' + id + '.webp'; SPR[id] = i; } return SPR[id]; }
+  const spriteId = p => { const st = stageOf(p); return st === 0 ? 'egg_' + p.element : st === 1 ? 'baby_' + p.element : (st === 3 && p.species) ? FINAL_ID[p.species.el][p.species.br] : 'child_' + p.element; };
+  function drawThumb(c, id, locked) {   // 도감용 썸네일: 캐릭터 영역만 잘라 맞춤
+    const im = sprite(id), a = ANCH[id], g = c.getContext('2d');
+    const go = () => { const W = im.naturalWidth, x0 = a.bbox[0] * W, x1 = a.bbox[2] * W, y0 = (1 - a.bbox[3]) * W, y1 = (1 - a.bbox[1]) * W, w = x1 - x0, h = y1 - y0, k = Math.min(c.width / w, c.height / h) * .92;
+      g.clearRect(0, 0, c.width, c.height); g.drawImage(im, x0, y0, w, h, (c.width - w * k) / 2, (c.height - h * k) / 2, w * k, h * k);
+      if (locked) { g.globalCompositeOperation = 'source-in'; g.fillStyle = '#5a566b'; g.fillRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'source-over'; } };
+    if (im.complete && im.naturalWidth) go(); else im.addEventListener('load', go, { once: true });
+  }
+
+  // ================= 상태 =================
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d'); ctx.scale(3, 3); ctx.imageSmoothingQuality = 'high';   // 내부 해상도 3배, 좌표계는 160x110 유지
+  const $ = id => document.getElementById(id);
+  let pet = null, shop = null;
+  let anim = { action: null, actionUntil: 0 };
+  let lightsOff = false, speedIdx = 0;
+
+  const defaultPet = (name, element) => ({
+    name, element, color: ELEMENTS.find(e => e.id === element).color,
+    gameMs: 0, last: Date.now(),
+    hunger: 80, happy: 80, energy: 80, health: 100,
+    poop: 0, sick: false, sleeping: false, dead: false, weight: 5,
+    playCount: 0, sickCount: 0, careSum: 0, careN: 0, species: null,
+    weather: 'sunny', weatherLeft: GAME_DAY_MS * 0.2,
+  });
+  const defaultShop = () => ({ points: 0, owned: [], equip: {}, deco: [] });
+
+  const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+  const ageDays = p => Math.floor(p.gameMs / GAME_DAY_MS);
+  const stageOf = p => { const a = ageDays(p); let s = 0; STAGES.forEach((st, i) => { if (a >= st.minAge) s = i; }); return s; };
+  const speciesOf = p => p.species ? SPECIES[p.species.el][p.species.br] : null;
+  const weatherOf = p => WEATHERS.find(w => w.id === p.weather) || WEATHERS[0];
+  const decoOn = id => shop.deco.includes(id);
+  const isNight = () => lightsOff || pet.sleeping;
+
+  function save() {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(pet)); localStorage.setItem(SHOP_KEY, JSON.stringify(shop));
+    $('saveInfo').textContent = '저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  }
+  const loadJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } };
+  function addDex(key) { const d = loadJSON(DEX_KEY, []); if (!d.includes(key)) { d.push(key); localStorage.setItem(DEX_KEY, JSON.stringify(d)); } }
+  function showMsg(t, ms = 1800) { const m = $('msg'); m.textContent = t; m.classList.add('show'); clearTimeout(m._t); m._t = setTimeout(() => m.classList.remove('show'), ms); }
+
+  // ================= 진화 판정 =================
+  function decideBranch(p) {
+    const care = p.careN > 0 ? p.careSum / p.careN : 50;
+    if (p.sickCount >= 2 || p.health < 40) return 4;
+    if (care >= 80) return 1;
+    if (p.weight >= 9) return 2;
+    if (p.playCount >= 25 || p.weight <= 4) return 3;
+    return 0;
+  }
+  function evolveFinal() {
+    const br = decideBranch(pet);
+    pet.species = { el: pet.element, br };
+    addDex(pet.element + ':' + br);
+    showMsg(`✨ ${speciesOf(pet).name}(으)로 최종 진화! [${BRANCHES[br]}]`, 4000);
+  }
+
+  // ================= 시간 경과 (게임 시간 기준) =================
+  function tick(dtReal, speed) {
+    if (pet.dead) return;
+    const dtGame = dtReal * speed;
+    pet.gameMs += dtGame;
+    const h = dtGame / 3600000;
+    const w = weatherOf(pet);
+    // 날씨 교대
+    pet.weatherLeft -= dtGame;
+    if (pet.weatherLeft <= 0) {
+      const pool = ['sunny', 'sunny', 'cloudy', 'cloudy', 'rain', 'snow', 'rainbow'];
+      pet.weather = pool[Math.floor(Math.random() * pool.length)];
+      pet.weatherLeft = GAME_DAY_MS * (0.1 + Math.random() * 0.25);
+    }
+    const rate = pet.sleeping ? 0.4 : 1;
+    let happyMul = (w.id === 'rain' && decoOn('umbrella')) ? 1.0 : w.happyMul;
+    DECOS.forEach(d => { if (d.effect === 'happy' && decoOn(d.id)) happyMul *= 0.9; });
+    pet.hunger = clamp(pet.hunger - 8 * h * rate);
+    pet.happy = clamp(pet.happy - 6 * h * rate * happyMul);
+    pet.energy = pet.sleeping ? clamp(pet.energy + 60 * h) : clamp(pet.energy - 5 * h);
+    pet.poop = clamp(pet.poop + 0.6 * h, 0, 4);
+    let dh = 0;
+    if (pet.hunger < 20) dh -= 5 * h;
+    if (pet.poop >= 3) dh -= 4 * h;
+    if (pet.sick) dh -= 8 * h;
+    if (pet.hunger > 50 && pet.happy > 50 && !pet.sick && pet.poop < 2) dh += 3 * h;
+    pet.health = clamp(pet.health + dh);
+    if (!pet.sick && (pet.poop >= 3 || pet.hunger < 15) && Math.random() < 0.15 * h) { pet.sick = true; pet.sickCount++; }
+    if (pet.sleeping && pet.energy >= 100) { pet.sleeping = false; }
+    if (stageOf(pet) < 3) { pet.careSum += (pet.hunger + pet.happy) / 2 * h; pet.careN += h; }
+    // 행복 포인트: 깨어 있고 행복 70 이상이면 게임 1시간당 10
+    if (!pet.sleeping && pet.happy >= 70 && stageOf(pet) > 0) shop.points += 10 * h;
+    if (pet.health <= 0) pet.dead = true;
+  }
+
+  // ================= 렌더링 =================
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = clamp((n >> 16) + amt, 0, 255), g = clamp(((n >> 8) & 255) + amt, 0, 255), b = clamp((n & 255) + amt, 0, 255);
+    return `rgb(${r},${g},${b})`;
+  }
+  function px(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+  function drawMap(c, rows, pal, x, y, s, eyesClosed) {
+    for (let r = 0; r < rows.length; r++) for (let q = 0; q < rows[r].length; q++) {
+      let ch = rows[r][q]; if (ch === '.') continue;
+      if (ch === 'E' && eyesClosed) ch = 'D';
+      c.fillStyle = pal[ch] || '#000'; c.fillRect(Math.round(x + q * s), Math.round(y + r * s), Math.ceil(s), Math.ceil(s));
+    }
+  }
+  const spritePal = pal => ({ ...pal, E: '#1a1a1a', W: '#ffffff' });
+
+  function drawBg(t) {
+    const w = weatherOf(pet), night = isNight();
+    if (night) {
+      px(0, 0, 160, 110, '#1a1f3a');
+      for (let i = 0; i < 12; i++) { const sx = (i * 37 + 11) % 160, sy = (i * 23 + 7) % 70; if ((t + i) % 3 !== 0) px(sx, sy, 2, 2, '#f5f3ce'); }
+      px(0, 86, 160, 24, w.id === 'snow' ? '#c9cfe0' : '#262b4d');
+    } else {
+      const sky = { sunny: '#bfe6ff', cloudy: '#c9d3dc', rain: '#8fa3b5', snow: '#dfe8f0', rainbow: '#cdeaff' }[w.id];
+      px(0, 0, 160, 110, sky);
+      px(0, 86, 160, 24, w.id === 'snow' ? '#f4f7fb' : '#7ed67e'); px(0, 86, 160, 3, w.id === 'snow' ? '#fff' : '#a2e6a2');
+      if (w.id === 'rainbow') { ['#ff6b6b', '#ffa94d', '#ffe066', '#8ce99a', '#74c0fc', '#b197fc'].forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(110, 90, 60 - i * 2.5, Math.PI, 2 * Math.PI); ctx.stroke(); }); }
+      const cc = (w.id === 'rain') ? '#5c6b7a' : (w.id === 'cloudy' ? '#eef1f4' : '#fff');
+      const cx = (t * 0.4) % 200 - 40;
+      px(cx, 14, 24, 8, cc); px(cx + 6, 9, 14, 6, cc); px(cx + 90, 26, 20, 7, cc); px(cx + 95, 22, 10, 5, cc);
+      if (w.id === 'cloudy' || w.id === 'rain') { px(cx + 40, 6, 30, 9, cc); px(cx + 48, 2, 16, 6, cc); px(cx + 130, 12, 26, 8, cc); }
+      if (w.id === 'sunny' || w.id === 'rainbow') { px(136, 8, 14, 14, '#ffd93d'); px(133, 11, 20, 8, '#ffd93d'); px(139, 5, 8, 20, '#ffd93d'); }
+    }
+    // 강수
+    if (w.id === 'rain') for (let i = 0; i < 24; i++) { const x = (i * 29 + t * 3) % 160, y = (i * 41 + t * 6) % 90; px(x, y, 1, 5, 'rgba(120,170,230,.8)'); }
+    if (w.id === 'snow') for (let i = 0; i < 20; i++) { const x = (i * 31 + Math.sin((t + i) * 0.1) * 6 + 80) % 160, y = (i * 37 + t * 1.2) % 92; px(x, y, 2, 2, '#fff'); }
+  }
+
+  function drawDecoBack(t) {
+    const night = isNight();
+    if (decoOn('garland')) { const cols = ['#ff6b6b', '#ffe066', '#8ce99a', '#74c0fc', '#f783ac']; for (let i = 0; i < 10; i++) { px(8 + i * 16, 4 + (i % 2) * 3, 4, 4, (t % 20 < 10) === (i % 2 === 0) || night ? cols[i % 5] : shade(cols[i % 5], -60)); px(8 + i * 16 + 4, 5 + (i % 2) * 3, 12, 1, '#555'); } }
+    if (decoOn('fence')) for (let x = 0; x < 160; x += 12) { px(x + 2, 72, 4, 14, '#d9b382'); px(x, 75, 12, 2, '#c49a6c'); px(x, 81, 12, 2, '#c49a6c'); }
+    DECOS.forEach(d => { if (d.map && decoOn(d.id)) drawMap(ctx, d.map, d.pal, d.x, d.y, d.s); });
+    if (decoOn('lamp') && night) { ctx.fillStyle = 'rgba(255,240,150,.18)'; ctx.beginPath(); ctx.arc(142, 48, 22, 0, Math.PI * 2); ctx.fill(); }
+    if (decoOn('sign')) { px(108, 54, 44, 14, '#8b5a2b'); px(110, 56, 40, 10, '#f5deb3'); px(126, 68, 3, 18, '#6d4422'); px(133, 68, 3, 18, '#6d4422'); ctx.fillStyle = '#5a3a1a'; ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(pet.name, 130, 64); ctx.textAlign = 'left'; }
+    if (decoOn('rug')) { px(46, 84, 68, 10, '#c0392b'); px(50, 86, 60, 6, '#e74c3c'); for (let x = 54; x < 106; x += 8) px(x, 88, 4, 2, '#f9e79f'); }
+    if (decoOn('flowers')) { const cols = ['#ff6b9d', '#ffd93d', '#a78bfa', '#ff8c42', '#fff']; for (let i = 0; i < 9; i++) { const x = 4 + i * 18 + (i % 2) * 5; px(x + 1, 80, 1, 5, '#2e7d32'); px(x, 78, 3, 3, cols[i % 5]); px(x + 1, 79, 1, 1, '#fff'); } }
+    if (decoOn('tree') && !night && weatherOf(pet).id === 'sunny') { ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(10, 86, 40, 6); }
+  }
+
+  function drawPoop(n) {
+    for (let i = 0; i < Math.floor(n); i++) {
+      const x = 112 + (i % 2) * 14, y = 76 - Math.floor(i / 2) * 2;
+      px(x + 2, y, 8, 4, '#8b5a2b'); px(x, y + 4, 12, 5, '#6d4422'); px(x + 4, y - 3, 4, 3, '#8b5a2b');
+    }
+  }
+
+  function drawWear(box) {
+    // box: {top, headCX, headW, u, bodyCX, bodyTop, bodyH}
+    const eq = shop.equip;
+    const item = slot => ITEMS.find(i => i.id === eq[slot]);
+    const hat = item('hat'), face = item('face'), neck = item('neck'), outfit = item('outfit');
+    const uh = clamp(box.headW / 8, box.u * 0.6, box.u);
+    if (outfit) drawMap(ctx, outfit.map, outfit.pal, box.bodyCX - 4 * box.u, box.outfitY != null ? box.outfitY : box.bodyTop + box.bodyH * 0.5, box.u);
+    if (neck) drawMap(ctx, neck.map, neck.pal, box.headCX - 4 * uh, box.neckY != null ? box.neckY : box.bodyTop + box.bodyH * 0.42, uh);
+    if (face) drawMap(ctx, face.map, face.pal, box.headCX - 4 * uh, box.eyeY - uh * 0.5, uh);
+    if (hat) drawMap(ctx, hat.map, hat.pal, box.headCX - 4 * uh, box.top - hat.map.length * uh + uh, uh);
+  }
+
+  function drawPet(t) {
+    const c = pet.color, dark = shade(c, -45), light = shade(c, 50);
+    const stage = stageOf(pet);
+    const bob = pet.sleeping ? 0 : Math.round(Math.sin(t * 0.25) * 2);
+    let ox = 64, oy = 30 + bob;
+    const playing = anim.action === 'play' && Date.now() < anim.actionUntil;
+    const feeding = anim.action === 'feed' && Date.now() < anim.actionUntil;
+    if (playing) { ox += Math.round(Math.sin(t * 0.8) * 16); oy -= Math.abs(Math.round(Math.sin(t * 0.8) * 10)); }
+    if (feeding) oy += (t % 4 < 2 ? 2 : 0);
+
+    if (pet.dead) {
+      px(68, 50, 24, 36, '#9a9a9a'); px(66, 54, 28, 6, '#8a8a8a'); px(70, 46, 20, 8, '#9a9a9a');
+      px(76, 60, 8, 3, '#555'); px(78, 58, 4, 10, '#555'); return;
+    }
+    // 3D 스프라이트 그리기. 3D 1단위 = 캔버스 46px, 발밑(gnd)이 지면 y=86 에 오도록 배치
+    const sid = spriteId(pet), im = sprite(sid), a = ANCH[sid];
+    const U = 46, cell = U * SPAN;
+    const wob = stage === 0 ? Math.sin(t * 0.3) : 0;
+    const X0 = 80 + (ox - 64) + wob - a.gnd[0] * cell, Y0 = 86 + (oy - 30) - (1 - a.gnd[1]) * cell;
+    const ax = u => X0 + u * cell, ay = v => Y0 + (1 - v) * cell;
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(ax(a.gnd[0]), 87, (a.bbox[2] - a.bbox[0]) * cell * .32, 3, 0, 0, 7); ctx.fill();
+    if (im.complete && im.naturalWidth) ctx.drawImage(im, X0, Y0, cell, cell);
+    else { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(80, 70, 12, 0, 7); ctx.fill(); }
+    if (stage === 0) return;
+    const sx = ax(a.bbox[0]), sy = ay(a.bbox[3]), ssize = (a.bbox[2] - a.bbox[0]) * cell, bh = (a.bbox[3] - a.bbox[1]) * cell;
+    const u = U * 0.5 / 8 * (stage === 1 ? 0.8 : 1);
+    const box = { top: ay(a.top[1]), headCX: ax(a.eye[0]), headW: u * 8, u, eyeY: ay(a.eye[1]) - u, neckY: ay(a.eye[1]) + u * 2.6, outfitY: ay(a.eye[1]) + u * 4,
+                  bodyCX: ax(a.eye[0]) + u, bodyTop: sy, bodyH: bh };
+    drawWear(box);
+
+    ctx.font = '12px sans-serif';
+    if (pet.sleeping) { ctx.fillStyle = '#fff'; ctx.fillText('z', sx + ssize + 2 + (t % 20) / 4, sy + 6 - (t % 20) / 3); ctx.fillText('Z', sx + ssize + 8 + (t % 20) / 3, sy - 2 - (t % 20) / 2); }
+    if (pet.sick) ctx.fillText('💀', sx + ssize, sy + 8);
+    if (feeding) { ctx.font = '14px sans-serif'; ctx.fillText('🍖', sx - 18, sy + bh * 0.6); }
+    if (anim.action === 'heart' && Date.now() < anim.actionUntil) ctx.fillText('❤', sx + ssize / 2 - 4, sy - 8 - (t % 10));
+    if (pet.hunger < 25 && !pet.sleeping) { ctx.font = '10px sans-serif'; ctx.fillStyle = '#fff'; ctx.fillRect(sx + ssize + 2, sy - 6, 22, 14); ctx.fillStyle = '#222'; ctx.fillText('🍖?', sx + ssize + 3, sy + 5); }
+  }
+  function drawWeatherTag() {
+    const w = weatherOf(pet);
+    ctx.font = '10px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillRect(2, 2, 40, 13);
+    ctx.fillStyle = '#333'; ctx.fillText(w.icon + ' ' + w.name, 4, 12);
+  }
+  function render(t) { drawBg(t); drawDecoBack(t); drawPoop(pet.poop); drawPet(t); drawWeatherTag(); }
+
+  function updateUI() {
+    if (!pet) return;
+    const st = stageOf(pet); const sp = speciesOf(pet);
+    $('hudName').textContent = pet.name;
+    $('hudStage').textContent = pet.dead ? '😢' : (st === 3 && sp ? sp.name : STAGES[st].name) + (pet.sleeping ? ' 💤' : '') + (pet.sick ? ' 🤒' : '');
+    $('hudAge').textContent = ageDays(pet) + '일 ' + pet.weight.toFixed(1) + 'g';
+    $('hudPts').textContent = '💖 ' + Math.floor(shop.points);
+    $('bHunger').style.width = pet.hunger + '%'; $('bHappy').style.width = pet.happy + '%';
+    $('bEnergy').style.width = pet.energy + '%'; $('bHealth').style.width = pet.health + '%';
+    ['btnFeed', 'btnPlay', 'btnSleep', 'btnClean', 'btnMed'].forEach(id => $(id).disabled = pet.dead || st === 0);
+    $('btnSleep').querySelector('span').textContent = pet.sleeping ? '☀️' : '💤';
+    $('btnSleep').lastChild.textContent = pet.sleeping ? '깨우기' : '잠자기';
+    $('speedBtn').textContent = '⏩ ' + SPEEDS[speedIdx] + 'x';
+    if (pet.dead) showOverlay('😢 ' + pet.name + '가 떠났어요', `${ageDays(pet)}일 동안 함께했어요.${sp ? '\n최종 형태: ' + sp.name : ''}\n새로운 알을 받아볼까요?\n(포인트·아이템·도감은 유지돼요)`, '새 알 받기');
+  }
+
+  // ================= 액션 =================
+  function act(kind) {
+    if (pet.dead || stageOf(pet) === 0) return;
+    if (pet.sleeping && kind !== 'sleep') { showMsg('자고 있어요… 먼저 깨워주세요'); return; }
+    switch (kind) {
+      case 'feed':
+        if (pet.hunger >= 95) { showMsg('배가 너무 불러요!'); pet.happy = clamp(pet.happy - 5); break; }
+        pet.hunger = clamp(pet.hunger + 25); pet.weight += 0.3; pet.poop = clamp(pet.poop + 0.5, 0, 4);
+        anim = { action: 'feed', actionUntil: Date.now() + 1500 }; showMsg('냠냠! 🍖'); break;
+      case 'play':
+        if (pet.energy < 15) { showMsg('너무 피곤해요… 😩'); break; }
+        pet.happy = clamp(pet.happy + 20); pet.energy = clamp(pet.energy - 15); pet.hunger = clamp(pet.hunger - 5); pet.weight = Math.max(1, pet.weight - 0.2); pet.playCount++;
+        if (pet.happy >= 70) { shop.points += 3; showMsg('재밌어요! 🎉 +3💖'); } else showMsg('재밌어요! 🎉');
+        anim = { action: 'play', actionUntil: Date.now() + 2000 }; break;
+      case 'sleep':
+        pet.sleeping = !pet.sleeping; showMsg(pet.sleeping ? '잘 자요… 💤 (에너지 회복 중)' : '좋은 아침! ☀️'); break;
+      case 'clean':
+        if (pet.poop < 1) { showMsg('이미 깨끗해요 ✨'); break; }
+        pet.poop = 0; pet.happy = clamp(pet.happy + 5); anim = { action: 'heart', actionUntil: Date.now() + 1200 }; showMsg('깨끗해졌어요 ✨'); break;
+      case 'med':
+        if (!pet.sick) { showMsg('아프지 않아요. 약은 맛없어요 😣'); pet.happy = clamp(pet.happy - 8); break; }
+        pet.sick = false; pet.health = clamp(pet.health + 20); anim = { action: 'heart', actionUntil: Date.now() + 1200 }; showMsg('다 나았어요! 💊'); break;
+    }
+    updateUI(); save();
+  }
+
+  // ================= 오버레이 / 도감 / 상점 =================
+  let selEl = ELEMENTS[0].id;
+  function buildPalette() {
+    const p = $('palette'); p.innerHTML = '';
+    ELEMENTS.forEach(e => { const d = document.createElement('div'); d.className = 'swatch' + (e.id === selEl ? ' sel' : ''); d.style.background = e.color; d.textContent = e.icon; d.onclick = () => { selEl = e.id; buildPalette(); }; p.appendChild(d); });
+    const e = ELEMENTS.find(x => x.id === selEl);
+    $('elHint').textContent = `${e.icon} ${e.name} 속성 → ${SPECIES[e.id].map(s => s.name).join(' · ')}`;
+  }
+  function showOverlay(title, text, btn) {
+    $('ovTitle').textContent = title; $('ovText').textContent = text; $('ovBtn').textContent = btn;
+    buildPalette(); $('overlay').classList.add('show');
+  }
+  $('ovBtn').onclick = () => {
+    const name = $('nameInput').value.trim() || '타마';
+    pet = defaultPet(name, selEl);
+    pet.gameMs = GAME_DAY_MS - 90000; // 알은 90초 뒤 부화 (1배속)
+    lastStage = 0;
+    $('overlay').classList.remove('show'); save(); updateUI(); showMsg('알이 꿈틀거려요… 잠시 기다려주세요 🥚', 3000);
+  };
+  let resetting = false;
+  $('resetBtn').onclick = () => { if (confirm('정말 초기화할까요? 현재 다마고치가 사라져요.\n(도감·포인트·아이템은 유지)')) { resetting = true; pet = null; localStorage.removeItem(SAVE_KEY); location.reload(); } };
+
+  function openDex() {
+    const found = loadJSON(DEX_KEY, []); const body = $('dexBody'); body.innerHTML = '';
+    $('dexCount').textContent = `${found.length}/30`;
+    ELEMENTS.forEach(e => {
+      const h = document.createElement('div'); h.className = 'sec-title'; h.textContent = `${e.icon} ${e.name}`; body.appendChild(h);
+      const g = document.createElement('div'); g.className = 'dex-grid';
+      SPECIES[e.id].forEach((sp, i) => {
+        const key = e.id + ':' + i, ok = found.includes(key);
+        const cell = document.createElement('div'); cell.className = 'dex-cell' + (ok ? '' : ' locked');
+        const c = document.createElement('canvas'); c.width = 120; c.height = 120;
+        drawThumb(c, FINAL_ID[e.id][i], !ok);
+        cell.appendChild(c);
+        const n = document.createElement('div'); n.textContent = ok ? sp.name : '???'; cell.appendChild(n);
+        const b = document.createElement('div'); b.style.opacity = .7; b.textContent = BRANCHES[i]; cell.appendChild(b);
+        cell.title = BRANCH_HINT[i]; g.appendChild(cell);
+      });
+      body.appendChild(g);
+    });
+    const note = document.createElement('div'); note.className = 'note';
+    note.innerHTML = '<b>분기 조건 (어른 진화 시 판정, 우선순위 순)</b><br>' + ['그늘', '정성', '튼튼', '민첩', '기본'].map(n => { const i = BRANCHES.indexOf(n); return `${n}: ${BRANCH_HINT[i]}`; }).join('<br>');
+    body.appendChild(note);
+    $('dex').classList.add('show');
+  }
+  $('dexBtn').onclick = openDex;
+  $('dexClose').onclick = () => $('dex').classList.remove('show');
+
+  function openShop() {
+    const body = $('shopBody'); body.innerHTML = '';
+    $('shopPts').textContent = `💖 ${Math.floor(shop.points)}`;
+    const mkRow = (icon, name, sub, btnLabel, btnOn, onClick, disabled) => {
+      const row = document.createElement('div'); row.className = 'shop-row';
+      const c = document.createElement('canvas'); c.width = 32; c.height = 32; icon(c.getContext('2d')); row.appendChild(c);
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.innerHTML = `${name}<small>${sub}</small>`; row.appendChild(nm);
+      const b = document.createElement('button'); b.textContent = btnLabel; if (btnOn) b.className = 'on'; b.disabled = !!disabled; b.onclick = onClick; row.appendChild(b);
+      body.appendChild(row);
+    };
+    const slotName = { hat: '머리', face: '얼굴', neck: '목', outfit: '옷' };
+    ['hat', 'face', 'neck', 'outfit'].forEach(slot => {
+      const h = document.createElement('div'); h.className = 'sec-title'; h.textContent = `👒 ${slotName[slot]}`; body.appendChild(h);
+      ITEMS.filter(i => i.slot === slot).forEach(it => {
+        const owned = shop.owned.includes(it.id), on = shop.equip[slot] === it.id;
+        const s = Math.floor(28 / Math.max(8, it.map.length));
+        mkRow(cc => drawMap(cc, it.map, it.pal, (32 - 8 * s) / 2, (32 - it.map.length * s) / 2, s),
+          it.name, owned ? '보유 중' : `${it.price} 💖`,
+          owned ? (on ? '해제' : '착용') : '구매', on,
+          () => {
+            if (!owned) { if (shop.points < it.price) { showMsg('포인트가 부족해요 💔'); return; } shop.points -= it.price; shop.owned.push(it.id); shop.equip[slot] = it.id; showMsg(`${it.name} 구매! 바로 착용했어요`); }
+            else shop.equip[slot] = on ? null : it.id;
+            save(); updateUI(); openShop();
+          }, !owned && shop.points < it.price);
+      });
+    });
+    const h = document.createElement('div'); h.className = 'sec-title'; h.textContent = '🏡 방 꾸미기'; body.appendChild(h);
+    DECOS.forEach(d => {
+      const owned = shop.owned.includes(d.id), on = decoOn(d.id);
+      mkRow(cc => {
+        if (d.map) { const s = Math.floor(28 / Math.max(d.map[0].length, d.map.length)); drawMap(cc, d.map, d.pal, (32 - d.map[0].length * s) / 2, (32 - d.map.length * s) / 2, s); }
+        else { cc.font = '18px sans-serif'; cc.textAlign = 'center'; cc.fillText({ flowers: '🌷', fence: '🪵', rug: '🟥', sign: '🪧', garland: '✨' }[d.id], 16, 23); }
+      }, d.name, (owned ? '보유 중 · ' : `${d.price} 💖 · `) + d.desc,
+        owned ? (on ? '끄기' : '켜기') : '구매', on,
+        () => {
+          if (!owned) { if (shop.points < d.price) { showMsg('포인트가 부족해요 💔'); return; } shop.points -= d.price; shop.owned.push(d.id); shop.deco.push(d.id); showMsg(`${d.name} 설치!`); }
+          else { if (on) shop.deco = shop.deco.filter(x => x !== d.id); else shop.deco.push(d.id); }
+          save(); updateUI(); openShop();
+        }, !owned && shop.points < d.price);
+    });
+    const note = document.createElement('div'); note.className = 'note';
+    note.textContent = '💖 행복 포인트: 깨어 있고 행복 70 이상일 때 게임 1시간당 10점, 행복한 상태로 놀아주면 +3. 포인트·아이템은 다마고치가 바뀌어도 유지돼요.';
+    body.appendChild(note);
+    $('shop').classList.add('show');
+  }
+  $('btnShop').onclick = openShop;
+  $('shopClose').onclick = () => $('shop').classList.remove('show');
+
+  $('btnFeed').onclick = () => act('feed');
+  $('btnPlay').onclick = () => act('play');
+  $('btnSleep').onclick = () => act('sleep');
+  $('btnClean').onclick = () => act('clean');
+  $('btnMed').onclick = () => act('med');
+  $('lightBtn').onclick = () => { lightsOff = !lightsOff; showMsg(lightsOff ? '조명 꺼짐 🌙' : '조명 켜짐 💡'); };
+  $('speedBtn').onclick = () => { speedIdx = (speedIdx + 1) % SPEEDS.length; localStorage.setItem('colorTama_speed', speedIdx); updateUI(); showMsg(`배속 ${SPEEDS[speedIdx]}x (게임 1일 = 실시간 ${(60 / SPEEDS[speedIdx]).toFixed(0)}분)`); };
+
+  // ================= 초기화 =================
+  shop = loadJSON(SHOP_KEY, defaultShop());
+  speedIdx = parseInt(localStorage.getItem('colorTama_speed') || '0') || 0;
+  pet = loadJSON(SAVE_KEY, null);
+  if (!pet) showOverlay('🥚 새 알이 도착했어요!', '이름을 정하고 속성 색을 골라주세요.\n속성과 키우는 방식에 따라 30종 중 하나로 최종 진화해요.', '시작하기');
+  else {
+    const gap = Date.now() - pet.last;
+    if (gap > 60000) { tick(gap, 1); showMsg(`${(gap / 3600000).toFixed(1)}시간 동안 자리를 비웠어요 (1배속 적용)`, 3000); }
+    pet.last = Date.now();
+    if (stageOf(pet) === 3 && !pet.species && !pet.dead) evolveFinal();
+    save();
+  }
+  updateUI();
+
+  let frame = 0, lastStage = pet ? stageOf(pet) : 0;
+  setInterval(() => {
+    if (!pet) return;
+    frame++;
+    if (frame % 10 === 0) {
+      const now = Date.now(); tick(now - pet.last, SPEEDS[speedIdx]); pet.last = now;
+      const st = stageOf(pet);
+      if (st !== lastStage) {
+        lastStage = st; pet.happy = 100;
+        if (st === 3) evolveFinal(); else showMsg(`🎉 ${STAGES[st].name}(으)로 성장했어요!`, 3000);
+        save();
+      }
+      updateUI();
+      if (frame % 300 === 0) save();
+    }
+    render(frame);
+  }, 100);
+  window.addEventListener('beforeunload', () => { if (!resetting && pet) save(); });
+  window.addEventListener('pagehide', () => { if (!resetting && pet) save(); });        // iOS 는 beforeunload 가 안 올 수 있음
+  document.addEventListener('visibilitychange', () => { if (document.hidden && !resetting && pet) save(); });
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
+})();
+</script>
+</body>
+</html>
