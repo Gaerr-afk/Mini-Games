@@ -76,6 +76,12 @@
   .shop-row .nm small { display: block; font-weight: 400; opacity: .7; }
   .shop-row button { padding: 5px 10px; font-size: 10px; border-radius: 8px; box-shadow: 0 2px 0 #d9457f; }
   .shop-row button.on { background: #ffd93d; color: #5a3a00; box-shadow: 0 2px 0 #b89b00; }
+  /* 좁은 화면: 오버레이가 잘리지 않게 스크롤 허용, 하단 링크 터치 영역 확대 */
+  .overlay { justify-content: safe center; overflow-y: auto; }
+  .footer a { padding: 8px 3px; display: inline-block; }
+  .overlay input { font-size: 16px; }   /* iOS: 16px 미만 입력칸은 포커스 때 화면이 확대됨 */
+  .dex-cell { min-width: 0; overflow: hidden; } .dex-cell canvas { width: 100%; max-width: 40px; height: auto; }
+  @media (max-width: 380px) { .overlay { gap: 6px; padding: 10px; } .overlay h2 { font-size: 16px; } .overlay p { font-size: 10px; line-height: 1.4; } .overlay input { padding: 6px 10px; } .hud { font-size: 10px; } }
 </style>
 </head>
 <body>
@@ -356,7 +362,7 @@
     DECOS.forEach(d => { if (d.effect === 'happy' && decoOn(d.id)) happyMul *= 0.9; });
     pet.hunger = clamp(pet.hunger - 8 * h * rate);
     pet.happy = clamp(pet.happy - 6 * h * rate * happyMul);
-    pet.energy = pet.sleeping ? clamp(pet.energy + 60 * h) : clamp(pet.energy - 5 * h);
+    pet.energy = pet.sleeping ? clamp(pet.energy + 600 * h) : clamp(pet.energy - 5 * h);
     pet.poop = clamp(pet.poop + 0.6 * h, 0, 4);
     let dh = 0;
     if (pet.hunger < 20) dh -= 5 * h;
@@ -467,7 +473,8 @@
     if (stage === 0) return;
     const sx = ax(a.bbox[0]), sy = ay(a.bbox[3]), ssize = (a.bbox[2] - a.bbox[0]) * cell, bh = (a.bbox[3] - a.bbox[1]) * cell;
     const u = U * 0.5 / 8 * (stage === 1 ? 0.8 : 1);
-    const box = { top: ay(a.top[1]), headCX: ax(a.eye[0]), headW: u * 8, u, eyeY: ay(a.eye[1]) - u, neckY: ay(a.eye[1]) + u * 2.6, outfitY: ay(a.eye[1]) + u * 4,
+    const box = { top: Math.max(ay(a.top[1]), ay(a.eye[1]) - u * 4.5),   // 지느러미·뿔이 높아도 모자는 머리 바로 위에
+                   headCX: ax(a.eye[0]), headW: u * 8, u, eyeY: ay(a.eye[1]) - u, neckY: ay(a.eye[1]) + u * 2.6, outfitY: ay(a.eye[1]) + u * 4,
                   bodyCX: ax(a.eye[0]) + u, bodyTop: sy, bodyH: bh };
     drawWear(box);
 
@@ -634,11 +641,14 @@
   // ================= 초기화 =================
   shop = loadJSON(SHOP_KEY, defaultShop());
   speedIdx = parseInt(localStorage.getItem('colorTama_speed') || '0') || 0;
+  shop = Object.assign(defaultShop(), shop); ['owned', 'deco'].forEach(k => { if (!Array.isArray(shop[k])) shop[k] = []; }); if (!shop.equip || typeof shop.equip !== 'object') shop.equip = {};   // 저장값이 깨졌거나 옛 형식이어도 동작
+  if (!SPEEDS[speedIdx]) speedIdx = 0;
   pet = loadJSON(SAVE_KEY, null);
   if (!pet) showOverlay('🥚 새 알이 도착했어요!', '이름을 정하고 속성 색을 골라주세요.\n속성과 키우는 방식에 따라 30종 중 하나로 최종 진화해요.', '시작하기');
   else {
     const gap = Date.now() - pet.last;
-    if (gap > 60000) { tick(gap, 1); showMsg(`${(gap / 3600000).toFixed(1)}시간 동안 자리를 비웠어요 (1배속 적용)`, 3000); }
+    if (gap > 60000) { for (let r = gap; r > 0; r -= 600000) tick(Math.min(r, 600000), 1);   // 자리 비운 시간은 10분 단위로 나눠 계산 (한 번에 계산하면 건강이 과하게 깎임)
+      showMsg(`${(gap / 3600000).toFixed(1)}시간 동안 자리를 비웠어요 (1배속 적용)`, 3000); }
     pet.last = Date.now();
     if (stageOf(pet) === 3 && !pet.species && !pet.dead) evolveFinal();
     save();
