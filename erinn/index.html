@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#6d4c9c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="에린 육성기">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>에린 견습생 육성기</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; background: linear-gradient(135deg, #1a1426 0%, #2b1f3d 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; color: #222; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation; padding: max(12px, env(safe-area-inset-top)) 0 max(12px, env(safe-area-inset-bottom)); }
+  .device { width: min(390px, calc(100vw - 10px)); background: linear-gradient(160deg, #6d4c9c, #9b7bd1); border-radius: 28px; padding: 18px 20px 20px; box-shadow: 0 25px 60px rgba(0,0,0,.55), inset 0 -6px 16px rgba(0,0,0,.2), inset 0 6px 12px rgba(255,255,255,.3); position: relative; }
+  .brand { text-align: center; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.3); font-size: 14px; margin-bottom: 8px; }
+  .brand small { display: block; letter-spacing: 1px; font-size: 9px; opacity: .85; font-weight: 600; }
+  .screen-frame { background: #241a33; border-radius: 16px; padding: 8px; box-shadow: inset 0 3px 8px rgba(0,0,0,.6); }
+  .screen { background: #e9e2d0; border-radius: 10px; overflow: hidden; position: relative; }
+  canvas { display: block; width: 100%; image-rendering: pixelated; }
+  .stage { position: relative; }
+  #gl { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: auto; }
+  canvas.c3d { image-rendering: auto; }
+  .overlay input { -webkit-user-select: text; user-select: text; }
+  .hud { display: flex; justify-content: space-between; align-items: center; padding: 5px 10px 2px; font-size: 11px; font-weight: 700; color: #3b2a4a; }
+  .hud .lv { background: #6d4c9c; color: #fff; border-radius: 8px; padding: 1px 6px; font-size: 10px; }
+  .xp { height: 4px; background: #cbbfae; margin: 0 10px; border-radius: 2px; overflow: hidden; } .xp i { display: block; height: 100%; background: #f5b700; transition: width .3s; }
+  .stats { padding: 4px 10px 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; }
+  .stat { font-size: 10px; color: #3b2a4a; font-weight: 700; }
+  .bar { height: 6px; background: #cbbfae; border-radius: 3px; overflow: hidden; margin-top: 1px; } .bar i { display: block; height: 100%; border-radius: 3px; transition: width .3s; }
+  .attrs { display: flex; justify-content: space-between; padding: 2px 10px 4px; font-size: 9px; color: #5a4a6a; font-weight: 700; }
+  .log { height: 40px; overflow: hidden; background: #d9d0bd; margin: 0 8px 8px; border-radius: 6px; padding: 3px 6px; font-size: 9px; line-height: 1.45; color: #333; }
+  .msg { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,.93); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; color: #333; opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; z-index: 2; }
+  .msg.show { opacity: 1; }
+  .buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  button { border: none; border-radius: 12px; padding: 10px 4px; font-size: 12px; font-weight: 800; cursor: pointer; background: #f6f1ff; color: #4a2d7a; box-shadow: 0 4px 0 #3f2a63, 0 6px 10px rgba(0,0,0,.25); transition: transform .05s, box-shadow .05s; }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 #3f2a63; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button span { display: block; font-size: 17px; }
+  .footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 10px; color: #fff; opacity: .9; }
+  .footer a { color: #fff; cursor: pointer; text-decoration: underline; margin-left: 9px; }
+  .footer a.speed { background: rgba(255,255,255,.25); padding: 2px 7px; border-radius: 8px; text-decoration: none; font-weight: 800; }
+  .overlay { position: absolute; inset: 0; background: rgba(20,12,35,.94); color: #fff; display: none; flex-direction: column; align-items: center; justify-content: safe center; text-align: center; padding: 12px; gap: 8px; z-index: 3; overflow-y: auto; }
+  .overlay.show { display: flex; }
+  .overlay h2 { font-size: 17px; } .overlay p { font-size: 10px; line-height: 1.5; opacity: .9; white-space: pre-line; }
+  .overlay input { padding: 7px 12px; border-radius: 8px; border: none; font-size: 16px; text-align: center; width: 170px; }
+  .overlay button { padding: 7px 18px; font-size: 11px; }
+  .row { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+  .chip { padding: 4px 8px; border-radius: 10px; background: rgba(255,255,255,.12); font-size: 10px; cursor: pointer; border: 2px solid transparent; }
+  .chip.sel { border-color: #ffd93d; background: rgba(255,217,61,.2); }
+  .sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; } .sw.sel { border-color: #fff; }
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+  .choice { background: rgba(255,255,255,.1); border-radius: 10px; padding: 6px; text-align: left; font-size: 10px; cursor: pointer; border: 2px solid transparent; display: flex; gap: 6px; align-items: center; }
+  .choice.sel { border-color: #ffd93d; } .choice.locked { opacity: .45; cursor: not-allowed; }
+  .choice canvas { width: 36px; height: 48px; flex: none; background: rgba(0,0,0,.25); border-radius: 6px; }
+  .choice b { display: block; font-size: 11px; } .choice small { opacity: .8; display: block; line-height: 1.3; }
+  .panel { position: absolute; inset: 0; background: #22182f; color: #fff; display: none; flex-direction: column; z-index: 3; }
+  .panel.show { display: flex; }
+  .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; font-size: 12px; font-weight: 800; background: #140e1e; }
+  .panel-head a { cursor: pointer; text-decoration: underline; font-weight: 400; }
+  .panel-body { overflow-y: auto; padding: 8px; flex: 1; font-size: 10px; }
+  .sec-title { font-size: 11px; font-weight: 800; margin: 6px 0 4px; }
+  .tree { margin-bottom: 8px; background: rgba(255,255,255,.06); border-radius: 8px; padding: 6px; }
+  .tree .t2 { margin: 3px 0 2px 6px; font-weight: 700; } .tree .t3 { margin-left: 18px; opacity: .85; }
+  .tree .cur { color: #ffd93d; } .tree .got { color: #8ce99a; }
+  .shop-row { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.08); border-radius: 8px; padding: 5px 8px; margin-bottom: 4px; }
+  .shop-row .nm { flex: 1; font-weight: 700; } .shop-row .nm small { display: block; font-weight: 400; opacity: .7; }
+  .shop-row button { padding: 5px 10px; font-size: 10px; border-radius: 8px; box-shadow: 0 2px 0 #3f2a63; }
+</style>
+</head>
+<body>
+<div class="device">
+  <div class="brand">ERINN APPRENTICE<small>에린 견습생 육성기</small></div>
+  <div class="screen-frame">
+    <div class="screen">
+      <div class="hud"><span id="hudName">-</span><span id="hudClass">-</span><span class="lv" id="hudLv">Lv 1</span><span id="hudGold">💰 0</span></div>
+      <div class="xp"><i id="xpBar"></i></div>
+      <div class="stage"><canvas id="cv" width="160" height="100"></canvas></div>
+      <div class="stats">
+        <div class="stat">❤️ 생명 <span id="nHp"></span> <div class="bar"><i id="bHp" style="background:#f0567a"></i></div></div>
+        <div class="stat">⚡ 체력 <span id="nSta"></span> <div class="bar"><i id="bSta" style="background:#4cc9f0"></i></div></div>
+        <div class="stat">🍞 포만 <div class="bar"><i id="bHun" style="background:#ff8a4c"></i></div></div>
+        <div class="stat">😊 기분 <div class="bar"><i id="bMood" style="background:#ffc93c"></i></div></div>
+      </div>
+      <div class="attrs" id="attrs"></div>
+      <div class="log" id="log"></div>
+      <div class="msg" id="msg"></div>
+      <div class="overlay" id="overlay"></div>
+      <div class="panel" id="tree"><div class="panel-head"><span>🌳 직업 트리</span><a id="treeClose">닫기 ✕</a></div><div class="panel-body" id="treeBody"></div></div>
+      <div class="panel" id="shop"><div class="panel-head"><span>🏪 잡화점 <span id="shopGold"></span></span><a id="shopClose">닫기 ✕</a></div><div class="panel-body" id="shopBody"></div></div>
+    </div>
+  </div>
+  <div class="buttons">
+    <button id="btnHunt"><span>⚔️</span>사냥</button>
+    <button id="btnTrain"><span>🏋️</span>훈련</button>
+    <button id="btnRest"><span>🔥</span>휴식</button>
+    <button id="btnEat"><span>🍖</span>식사</button>
+    <button id="btnShop"><span>🏪</span>잡화점</button>
+    <button id="btnTree"><span>🌳</span>직업트리</button>
+  </div>
+  <div class="footer"><span id="saveInfo">자동 저장</span><span><a class="speed" id="speedBtn">⏩ 1x</a><a id="zoneBtn">사냥터</a><a id="resetBtn">초기화</a></span></div>
+</div>
+
+<script>
+(async () => {
+  // 3D 캐릭터 모듈(three.js). 불러오지 못하거나 WebGL 이 없으면 G3 = null → 기존 2D 픽셀 캐릭터로 동작
+  let E3 = null, G3 = null;
+  try { if (!/[?&]2d\b/.test(location.search)) E3 = await import('./char3d.js'); } catch (err) { console.warn('3D 모듈을 불러오지 못해 2D 로 실행합니다', err); }
+
+  const SAVE_KEY = 'erinn_v1', DEX_KEY = 'erinn_dex', SPEED_KEY = 'erinn_speed';
+  const SPEEDS = [1, 10, 60];
+  const T2_LEVEL = 10, T3_LEVEL = 25, MAX_LEVEL = 40;
+  const STATS = ['힘', '민첩', '지력', '신성', '매력', '기교'];
+
+  // ================= 직업 데이터 =================
+  // 외형 키: armor(plate|leather|robe|cloth), weapon, head, col {C 상의, c 포인트, P 하의}
+  const FAMILIES = [
+    { id: 'warrior', name: '전사', stat: '힘', icon: '🛡️', color: '#c0392b', t2: ['warrior', 'greatsword', 'fencer'] },
+    { id: 'archer', name: '궁수', stat: '민첩', icon: '🏹', color: '#27ae60', t2: ['archer', 'longbow', 'crossbow'] },
+    { id: 'mage', name: '마법사', stat: '지력', icon: '🔮', color: '#2980b9', t2: ['mage', 'pyro', 'cryo'] },
+    { id: 'healer', name: '힐러', stat: '신성', icon: '✨', color: '#f1c40f', t2: ['healer', 'priest', 'monk'] },
+    { id: 'bard', name: '음유시인', stat: '매력', icon: '🎵', color: '#e67e22', t2: ['bard', 'dancer', 'musician'] },
+    { id: 'rogue', name: '도적', stat: '기교', icon: '🗡️', color: '#8e44ad', t2: ['rogue', 'dualblade', 'fighter'] },
+  ];
+  // 2차 직업 (각 계열 첫 번째 = 유지)
+  const T2 = {
+    warrior:    { name: '전사', fam: 'warrior', desc: '검과 방패, 단단한 내구력', armor: 'plate', weapon: 'sword', shield: true, head: 'helm', col: { C: '#8e9aaf', c: '#c0392b', P: '#4a5568' } },
+    greatsword: { name: '대검전사', fam: 'warrior', desc: '묵직한 한 방', armor: 'plate', weapon: 'greatsword', head: 'none', col: { C: '#6b3a2a', c: '#c0392b', P: '#3a2a22' } },
+    fencer:     { name: '검술사', fam: 'warrior', desc: '빠른 움직임과 카운터', armor: 'leather', weapon: 'rapier', head: 'none', col: { C: '#2c3e50', c: '#e74c3c', P: '#1c2833' } },
+    archer:     { name: '궁수', fam: 'archer', desc: '사각을 노리는 치명타', armor: 'leather', weapon: 'bow', head: 'feather', col: { C: '#2e7d4f', c: '#c9a227', P: '#5b3a1e' } },
+    longbow:    { name: '장궁병', fam: 'archer', desc: '최후방 화살 세례', armor: 'leather', weapon: 'longbow', head: 'hood', col: { C: '#4e6b3a', c: '#8fbf6a', P: '#3b2a1a' } },
+    crossbow:   { name: '석궁사수', fam: 'archer', desc: '확산/집중 전환 사격', armor: 'leather', weapon: 'crossbow', head: 'bandana', col: { C: '#5c6b4a', c: '#d35400', P: '#2f3a2a' } },
+    mage:       { name: '마법사', fam: 'mage', desc: '번개 속성 마법', armor: 'robe', weapon: 'staff', head: 'wizard', col: { C: '#3b5bdb', c: '#ffd43b', P: '#2b3a8a' } },
+    pyro:       { name: '화염술사', fam: 'mage', desc: '화염 속성 마법', armor: 'robe', weapon: 'staff', head: 'wizard', col: { C: '#c0392b', c: '#ff9f1c', P: '#7a1f14' } },
+    cryo:       { name: '빙결술사', fam: 'mage', desc: '얼음 속성, 감속과 방어', armor: 'robe', weapon: 'staff', head: 'circlet', col: { C: '#5dade2', c: '#eaf6ff', P: '#2e86c1' } },
+    healer:     { name: '힐러', fam: 'healer', desc: '아군 회복', armor: 'cloth', weapon: 'wand', head: 'none', col: { C: '#fdfefe', c: '#f1c40f', P: '#d5dbdb' } },
+    priest:     { name: '사제', fam: 'healer', desc: '신성한 축복과 심판', armor: 'robe', weapon: 'book', head: 'mitre', col: { C: '#f7f1dc', c: '#b8860b', P: '#6d5a2a' } },
+    monk:       { name: '수도사', fam: 'healer', desc: '맨손 격투와 수행', armor: 'cloth', weapon: 'fist', head: 'none', col: { C: '#d68a3a', c: '#8b5a2b', P: '#a0522d' } },
+    bard:       { name: '음유시인', fam: 'bard', desc: '노래로 아군 강화', armor: 'cloth', weapon: 'lute', head: 'feather', col: { C: '#e67e22', c: '#f9e79f', P: '#784212' } },
+    dancer:     { name: '댄서', fam: 'bard', desc: '춤으로 전장을 지배', armor: 'cloth', weapon: 'fan', head: 'none', col: { C: '#e84393', c: '#ffd700', P: '#6c2c5a' } },
+    musician:   { name: '악사', fam: 'bard', desc: '악기 연주로 지원', armor: 'cloth', weapon: 'harp', head: 'cap', col: { C: '#8e44ad', c: '#f5cba7', P: '#4a235a' } },
+    rogue:      { name: '도적', fam: 'rogue', desc: '은신과 기습', armor: 'leather', weapon: 'dagger', head: 'hood', col: { C: '#4a4a4a', c: '#8e44ad', P: '#2c2c2c' } },
+    dualblade:  { name: '듀얼블레이드', fam: 'rogue', desc: '쌍검 연속 베기', armor: 'leather', weapon: 'dual', head: 'bandana', col: { C: '#34495e', c: '#e74c3c', P: '#1b2631' } },
+    fighter:    { name: '격투가', fam: 'rogue', desc: '주먹과 발차기', armor: 'cloth', weapon: 'gauntlet', head: 'bandana', col: { C: '#e74c3c', c: '#f1c40f', P: '#7b241c' } },
+  };
+  // 3차 최종 직업: 각 2차마다 4개. req: {type:'stat'|'hunt'|'train'|'gold'|'hp', key, val}
+  const T3 = {
+    warrior: [
+      { name: '수호기사', desc: '아군을 지키는 방패의 벽', weapon: 'sword', shield: true, head: 'helm', col: { C: '#a9b4c2', c: '#3498db', P: '#4a5568' } },
+      { name: '성기사', desc: '신성한 힘을 두른 기사', weapon: 'sword', shield: true, head: 'crown', col: { C: '#f7f1dc', c: '#f1c40f', P: '#b7950b' }, req: { type: 'stat', key: '신성', val: 25 } },
+      { name: '철벽병', desc: '중갑으로 모든 공격을 받아낸다', weapon: 'hammer', shield: true, head: 'fullhelm', col: { C: '#5d6d7e', c: '#2c3e50', P: '#34495e' }, req: { type: 'hp', val: 60 } },
+      { name: '돌격대장', desc: '선두에서 길을 여는 지휘관', weapon: 'spear', shield: true, head: 'plume', col: { C: '#c0392b', c: '#f5b041', P: '#641e16' }, req: { type: 'hunt', val: 40 } },
+    ],
+    greatsword: [
+      { name: '버서커', desc: '분노로 싸우는 광전사', weapon: 'greatsword', head: 'horns', col: { C: '#7b241c', c: '#e74c3c', P: '#4a1510' } },
+      { name: '처형자', desc: '단 한 번의 참수', weapon: 'scythe', head: 'hood', col: { C: '#1c1c1c', c: '#922b21', P: '#0e0e0e' }, req: { type: 'stat', key: '힘', val: 50 } },
+      { name: '거인병', desc: '거대 망치의 파괴자', weapon: 'hammer', head: 'none', col: { C: '#935116', c: '#d68910', P: '#5b2c06' }, req: { type: 'hp', val: 70 } },
+      { name: '용살자', desc: '용을 베는 전설의 검', weapon: 'greatsword', head: 'crown', col: { C: '#2874a6', c: '#f4d03f', P: '#1b4f72' }, req: { type: 'hunt', val: 50 } },
+    ],
+    fencer: [
+      { name: '검성', desc: '검의 경지에 오른 자', weapon: 'rapier', head: 'none', col: { C: '#fdfefe', c: '#3498db', P: '#2c3e50' } },
+      { name: '결투가', desc: '일대일 결투의 달인', weapon: 'rapier', head: 'plume', col: { C: '#6c3483', c: '#f1c40f', P: '#2c3e50' }, req: { type: 'stat', key: '민첩', val: 35 } },
+      { name: '발도술사', desc: '찰나의 발도', weapon: 'katana', head: 'bandana', col: { C: '#1b2631', c: '#e74c3c', P: '#17202a' }, req: { type: 'train', val: 40 } },
+      { name: '검무사', desc: '춤추듯 검을 휘두른다', weapon: 'dual', head: 'none', col: { C: '#e8daef', c: '#af7ac5', P: '#4a235a' }, req: { type: 'stat', key: '매력', val: 25 } },
+    ],
+    archer: [
+      { name: '레인저', desc: '숲을 누비는 순찰자', weapon: 'bow', head: 'hood', col: { C: '#1e8449', c: '#82e0aa', P: '#145a32' } },
+      { name: '명사수', desc: '한 발도 빗나가지 않는다', weapon: 'bow', head: 'feather', col: { C: '#d4ac0d', c: '#7d6608', P: '#4a3a0a' }, req: { type: 'stat', key: '민첩', val: 50 } },
+      { name: '사냥꾼', desc: '맹수를 쫓는 추적자', weapon: 'bow', head: 'fur', col: { C: '#7e5109', c: '#a04000', P: '#4a2c0a' }, req: { type: 'hunt', val: 45 } },
+      { name: '유격병', desc: '치고 빠지는 기동전', weapon: 'bow', head: 'bandana', col: { C: '#566573', c: '#2ecc71', P: '#2c3e50' }, req: { type: 'train', val: 35 } },
+    ],
+    longbow: [
+      { name: '스나이퍼', desc: '초장거리 정밀 사격', weapon: 'longbow', head: 'hood', col: { C: '#2c3e50', c: '#1abc9c', P: '#1b2631' } },
+      { name: '저격병', desc: '한 발에 모든 것을 건다', weapon: 'longbow', head: 'fur', col: { C: '#4d5656', c: '#e74c3c', P: '#2e4053' }, req: { type: 'stat', key: '민첩', val: 50 } },
+      { name: '강궁병', desc: '성벽도 뚫는 강궁', weapon: 'longbow', head: 'helm', col: { C: '#784212', c: '#f39c12', P: '#4a2a0a' }, req: { type: 'stat', key: '힘', val: 35 } },
+      { name: '정찰궁병', desc: '적진 깊숙이 침투', weapon: 'longbow', head: 'bandana', col: { C: '#3b5b2a', c: '#a9dfbf', P: '#1e3a1a' }, req: { type: 'hunt', val: 45 } },
+    ],
+    crossbow: [
+      { name: '중석궁병', desc: '관통력 극대화', weapon: 'crossbow', head: 'helm', col: { C: '#5d6d7e', c: '#d35400', P: '#2c3e50' } },
+      { name: '속사수', desc: '연사의 달인', weapon: 'crossbow', head: 'bandana', col: { C: '#e67e22', c: '#2c3e50', P: '#6e2c00' }, req: { type: 'stat', key: '민첩', val: 45 } },
+      { name: '폭발석궁병', desc: '폭발 볼트로 광역 타격', weapon: 'crossbow', head: 'goggles', col: { C: '#922b21', c: '#f4d03f', P: '#4a1510' }, req: { type: 'stat', key: '지력', val: 30 } },
+      { name: '함정사수', desc: '덫과 석궁의 조합', weapon: 'crossbow', head: 'hood', col: { C: '#4a5a3a', c: '#8e44ad', P: '#2a3a2a' }, req: { type: 'stat', key: '기교', val: 30 } },
+    ],
+    mage: [
+      { name: '뇌전술사', desc: '번개를 다루는 자', weapon: 'staff', orb: '#ffd43b', head: 'wizard', col: { C: '#3b5bdb', c: '#ffd43b', P: '#2b3a8a' } },
+      { name: '대마법사', desc: '모든 원소를 지배', weapon: 'staff', orb: '#ffffff', head: 'crown', col: { C: '#5b2c6f', c: '#f4d03f', P: '#2e1a3a' }, req: { type: 'stat', key: '지력', val: 55 } },
+      { name: '폭풍술사', desc: '폭풍우를 부르는 마도사', weapon: 'staff', orb: '#74b9ff', head: 'hood', col: { C: '#1b2631', c: '#74b9ff', P: '#0e1a2a' }, req: { type: 'hunt', val: 40 } },
+      { name: '룬마스터', desc: '룬 문자로 마법을 새긴다', weapon: 'book', head: 'circlet', col: { C: '#117a65', c: '#f1c40f', P: '#0b5345' }, req: { type: 'train', val: 45 } },
+    ],
+    pyro: [
+      { name: '작열술사', desc: '불꽃의 폭발', weapon: 'staff', orb: '#ff6b35', head: 'wizard', col: { C: '#c0392b', c: '#ff9f1c', P: '#7a1f14' } },
+      { name: '용염술사', desc: '용의 불길을 빌린 자', weapon: 'staff', orb: '#ff3b3b', head: 'horns', col: { C: '#641e16', c: '#f39c12', P: '#3a0e0a' }, req: { type: 'stat', key: '지력', val: 50 } },
+      { name: '화산술사', desc: '대지를 녹이는 마그마', weapon: 'hammer', head: 'none', col: { C: '#4a2a1a', c: '#ff4d00', P: '#2a1a0a' }, req: { type: 'stat', key: '힘', val: 30 } },
+      { name: '불꽃무희', desc: '불꽃과 춤추는 마도사', weapon: 'fan', head: 'feather', col: { C: '#ff7f50', c: '#ffe066', P: '#a04000' }, req: { type: 'stat', key: '매력', val: 30 } },
+    ],
+    cryo: [
+      { name: '서리마도사', desc: '서리로 적을 묶는다', weapon: 'staff', orb: '#eaf6ff', head: 'circlet', col: { C: '#5dade2', c: '#eaf6ff', P: '#2e86c1' } },
+      { name: '빙하술사', desc: '빙하를 부르는 대마법', weapon: 'staff', orb: '#aee9ff', head: 'crown', col: { C: '#d6eaf8', c: '#2e86c1', P: '#85c1e9' }, req: { type: 'stat', key: '지력', val: 50 } },
+      { name: '결빙기사', desc: '얼음 갑옷을 두른 전투 마도사', weapon: 'sword', shield: true, head: 'helm', col: { C: '#aed6f1', c: '#1b4f72', P: '#2874a6' }, req: { type: 'hp', val: 60 } },
+      { name: '눈보라술사', desc: '시야를 덮는 눈보라', weapon: 'staff', orb: '#ffffff', head: 'hood', col: { C: '#fdfefe', c: '#5dade2', P: '#aeb6bf' }, req: { type: 'hunt', val: 40 } },
+    ],
+    healer: [
+      { name: '성직자', desc: '모두를 돌보는 치유자', weapon: 'wand', head: 'none', col: { C: '#fdfefe', c: '#f1c40f', P: '#d5dbdb' } },
+      { name: '대천사의 사도', desc: '천상의 빛을 내리는 자', weapon: 'wand', head: 'halo', col: { C: '#fef9e7', c: '#f7dc6f', P: '#f9e79f' }, req: { type: 'stat', key: '신성', val: 55 } },
+      { name: '전장의료관', desc: '전선에서 아군을 살린다', weapon: 'mace', shield: true, head: 'helm', col: { C: '#aab7b8', c: '#e74c3c', P: '#566573' }, req: { type: 'hunt', val: 40 } },
+      { name: '약초학자', desc: '자연의 약으로 치유', weapon: 'book', head: 'cap', col: { C: '#7dcea0', c: '#f0b27a', P: '#1e8449' }, req: { type: 'train', val: 40 } },
+    ],
+    priest: [
+      { name: '대사제', desc: '교단을 이끄는 최고 사제', weapon: 'book', head: 'mitre', col: { C: '#f7f1dc', c: '#b8860b', P: '#6d5a2a' } },
+      { name: '심판관', desc: '죄인을 심판하는 철퇴', weapon: 'mace', head: 'hood', col: { C: '#1c2833', c: '#f4d03f', P: '#0e1a2a' }, req: { type: 'hunt', val: 40 } },
+      { name: '예언자', desc: '미래를 읽는 눈', weapon: 'staff', orb: '#d7bde2', head: 'circlet', col: { C: '#6c3483', c: '#f5eef8', P: '#4a235a' }, req: { type: 'stat', key: '지력', val: 35 } },
+      { name: '성가대장', desc: '찬가로 축복을 내린다', weapon: 'harp', head: 'halo', col: { C: '#fdfefe', c: '#85c1e9', P: '#2e86c1' }, req: { type: 'stat', key: '매력', val: 30 } },
+    ],
+    monk: [
+      { name: '권법수도사', desc: '주먹에 신성을 담는다', weapon: 'fist', head: 'none', col: { C: '#d68a3a', c: '#8b5a2b', P: '#a0522d' } },
+      { name: '철권승', desc: '강철 같은 주먹', weapon: 'gauntlet', head: 'bandana', col: { C: '#7e5109', c: '#aab7b8', P: '#4a2c0a' }, req: { type: 'stat', key: '힘', val: 40 } },
+      { name: '선승', desc: '고요 속의 깨달음', weapon: 'staff', orb: '#f9e79f', head: 'none', col: { C: '#f5cba7', c: '#935116', P: '#dc7633' }, req: { type: 'train', val: 50 } },
+      { name: '고행승', desc: '고통을 힘으로 바꾼다', weapon: 'fist', head: 'hood', col: { C: '#6e2c00', c: '#f0b27a', P: '#3e1a00' }, req: { type: 'hp', val: 70 } },
+    ],
+    bard: [
+      { name: '궁정시인', desc: '왕궁의 노래꾼', weapon: 'lute', head: 'feather', col: { C: '#e67e22', c: '#f9e79f', P: '#784212' } },
+      { name: '전장가수', desc: '전투 함성으로 사기 고양', weapon: 'lute', head: 'helm', col: { C: '#922b21', c: '#f5b041', P: '#4a1510' }, req: { type: 'hunt', val: 40 } },
+      { name: '마에스트로', desc: '전장의 지휘자', weapon: 'baton', head: 'cap', col: { C: '#1c2833', c: '#f4d03f', P: '#0e1a2a' }, req: { type: 'stat', key: '매력', val: 55 } },
+      { name: '영웅담화가', desc: '전설을 노래하는 이야기꾼', weapon: 'book', head: 'hood', col: { C: '#5b2c6f', c: '#f5cba7', P: '#2e1a3a' }, req: { type: 'stat', key: '지력', val: 30 } },
+    ],
+    dancer: [
+      { name: '축제무희', desc: '모두를 춤추게 하는 자', weapon: 'fan', head: 'none', col: { C: '#e84393', c: '#ffd700', P: '#6c2c5a' } },
+      { name: '검무희', desc: '검을 들고 추는 춤', weapon: 'dual', head: 'none', col: { C: '#c0392b', c: '#fadbd8', P: '#641e16' }, req: { type: 'stat', key: '민첩', val: 35 } },
+      { name: '환상무희', desc: '환영으로 적을 홀린다', weapon: 'fan', head: 'circlet', col: { C: '#8e44ad', c: '#d7bde2', P: '#4a235a' }, req: { type: 'stat', key: '매력', val: 50 } },
+      { name: '전투무희', desc: '전장에서 피어나는 춤', weapon: 'spear', head: 'bandana', col: { C: '#e67e22', c: '#f4d03f', P: '#784212' }, req: { type: 'hunt', val: 40 } },
+    ],
+    musician: [
+      { name: '하프연주자', desc: '잔잔한 선율의 치유', weapon: 'harp', head: 'cap', col: { C: '#8e44ad', c: '#f5cba7', P: '#4a235a' } },
+      { name: '전고수', desc: '북소리로 진군을 알린다', weapon: 'drum', head: 'helm', col: { C: '#7b241c', c: '#f1c40f', P: '#4a1510' }, req: { type: 'hunt', val: 40 } },
+      { name: '피리술사', desc: '피리로 짐승을 부린다', weapon: 'flute', head: 'feather', col: { C: '#1e8449', c: '#f9e79f', P: '#145a32' }, req: { type: 'stat', key: '기교', val: 30 } },
+      { name: '지휘자', desc: '합주를 이끄는 손끝', weapon: 'baton', head: 'cap', col: { C: '#fdfefe', c: '#1c2833', P: '#2c3e50' }, req: { type: 'stat', key: '매력', val: 50 } },
+    ],
+    rogue: [
+      { name: '그림자', desc: '어둠 속에 숨은 자', weapon: 'dagger', head: 'hood', col: { C: '#2c2c2c', c: '#8e44ad', P: '#1a1a1a' } },
+      { name: '암살자', desc: '한 번의 일격', weapon: 'dagger', head: 'mask', col: { C: '#1b2631', c: '#e74c3c', P: '#0e1a2a' }, req: { type: 'stat', key: '기교', val: 50 } },
+      { name: '보물사냥꾼', desc: '유적과 함정의 전문가', weapon: 'dagger', head: 'fur', col: { C: '#7e5109', c: '#f4d03f', P: '#4a2c0a' }, req: { type: 'gold', val: 500 } },
+      { name: '괴도', desc: '예술적인 도둑', weapon: 'dagger', head: 'tophat', col: { C: '#fdfefe', c: '#c0392b', P: '#1c2833' }, req: { type: 'stat', key: '매력', val: 30 } },
+    ],
+    dualblade: [
+      { name: '쌍검무사', desc: '쌍검의 연격', weapon: 'dual', head: 'bandana', col: { C: '#34495e', c: '#e74c3c', P: '#1b2631' } },
+      { name: '블레이드댄서', desc: '춤추는 칼날', weapon: 'dual', head: 'none', col: { C: '#af7ac5', c: '#f5eef8', P: '#4a235a' }, req: { type: 'stat', key: '매력', val: 30 } },
+      { name: '섬광검사', desc: '빛보다 빠른 검', weapon: 'dual', head: 'goggles', col: { C: '#f4d03f', c: '#1c2833', P: '#7d6608' }, req: { type: 'stat', key: '민첩', val: 45 } },
+      { name: '혈검귀', desc: '피를 부르는 쌍검', weapon: 'dual', head: 'horns', col: { C: '#641e16', c: '#e74c3c', P: '#3a0e0a' }, req: { type: 'hunt', val: 50 } },
+    ],
+    fighter: [
+      { name: '투사', desc: '투기장의 전사', weapon: 'gauntlet', head: 'bandana', col: { C: '#e74c3c', c: '#f1c40f', P: '#7b241c' } },
+      { name: '철권', desc: '강철 주먹의 격투가', weapon: 'gauntlet', head: 'none', col: { C: '#5d6d7e', c: '#e74c3c', P: '#2c3e50' }, req: { type: 'stat', key: '힘', val: 45 } },
+      { name: '무도가', desc: '무예의 정점', weapon: 'fist', head: 'bandana', col: { C: '#fdfefe', c: '#1c2833', P: '#1c2833' }, req: { type: 'train', val: 50 } },
+      { name: '야수권', desc: '짐승의 본능으로 싸운다', weapon: 'claws', head: 'fur', col: { C: '#935116', c: '#f0b27a', P: '#4a2c0a' }, req: { type: 'hunt', val: 45 } },
+    ],
+  };
+
+  // ================= 외형 픽셀 데이터 =================
+  // S피부 H머리 E눈 C상의 c포인트 P하의 B신발 K어두움
+  const BODY = {
+    kid: ['....HHHH....', '...HHHHHH...', '...HSSSSH...', '...SESSES...', '...SSSSSS...', '....SSSS....', '...CCCCCC...', '..SCCccCCS..', '..SCCCCCCS..', '...CCCCCC...', '...PPPPPP...', '...PP..PP...', '...BB..BB...'],
+    teen: ['....HHHH....', '...HHHHHH...', '...HSSSSH...', '...SESSES...', '...SSSSSS...', '....SSSS....', '...CCCCCC...', '..SCCccCCS..', '..SCCccCCS..', '..SCCCCCCS..', '...CCCCCC...', '...CCCCCC...', '...PPPPPP...', '...PP..PP...', '...PP..PP...', '...BB..BB...'],
+    adult: ['.....HHHH.....', '....HHHHHH....', '....HSSSSH....', '....SESSES....', '....SSSSSS....', '.....SSSS.....', '...CCCCCCCC...', '..SCCCccCCCS..', '..SCCCccCCCS..', '..SCCCccCCCS..', '..SCCCCCCCCS..', '...CCCCCCCC...', '...CCCCCCCC...', '....PPPPPP....', '....PPPPPP....', '....PP..PP....', '....PP..PP....', '....PP..PP....', '....BB..BB....', '...BBB..BBB...'],
+  };
+  const HAIRS = [
+    { id: 'short', name: '짧은 머리', fn: (w) => [] },
+    { id: 'long', name: '긴 머리', fn: (w) => { const o = []; for (let r = 2; r <= 7; r++) { o.push([Math.floor(w / 2) - 4, r]); o.push([Math.floor(w / 2) + 3, r]); } return o; } },
+    { id: 'pony', name: '포니테일', fn: (w) => { const o = []; for (let r = 1; r <= 6; r++) o.push([Math.floor(w / 2) + 3 + (r > 3 ? 1 : 0), r]); return o; } },
+    { id: 'bob', name: '단발', fn: (w) => { const o = []; for (let r = 2; r <= 4; r++) { o.push([Math.floor(w / 2) - 4, r]); o.push([Math.floor(w / 2) + 3, r]); } o.push([Math.floor(w / 2) - 3, 5]); o.push([Math.floor(w / 2) + 2, 5]); return o; } },
+  ];
+  const HAIR_COLORS = ['#3b2a1a', '#e8c872', '#c0392b', '#2c3e50', '#f5f5f5', '#8e44ad'];
+  const SKINS = ['#ffd5b3', '#e8b58a', '#b07a4a'];
+  // 외형 상점
+  const DYE_HAIR = [...HAIR_COLORS, '#ff8fc8', '#4895ef', '#2ecc71', '#ff8c42'];
+  const DYE_CLOTH = [['진홍', '#c0392b'], ['군청', '#2c3e80'], ['숲녹색', '#1e8449'], ['보라', '#7d3c98'], ['검정', '#1c1c1c'], ['순백', '#fdfefe'], ['분홍', '#ff8fc8'], ['황금', '#d4ac0d']];
+  const COS_HEADS = [['ribbon', '리본', 80], ['flower', '꽃 장식', 80], ['catears', '고양이 귀', 120], ['goggles', '고글', 120], ['tophat', '실크햇', 150], ['horns', '뿔', 200], ['halo', '천사 고리', 300], ['crown', '왕관', 400]];
+  const COS_CAPES = [['붉은 망토', '#c0392b', 150], ['푸른 망토', '#2874a6', 150], ['검은 망토', '#1c1c1c', 200], ['흰 망토', '#f4f6f7', 200], ['황금 망토', '#d4ac0d', 350]];
+  // 머리장식 (8칸 폭) — 머리 꼭대기 위에 그림. 팔레트 c = 포인트색, C = 상의색
+  const HEADS = {
+    none: null,
+    helm: { map: ['..MMMM..', '.MMMMMM.', 'MMMMMMMM', 'M......M'], pal: { M: '#95a5a6' }, dy: 1 },
+    fullhelm: { map: ['..MMMM..', '.MMMMMM.', 'MMMMMMMM', 'MM.MM.MM', 'MMMMMMMM'], pal: { M: '#7f8c8d' }, dy: 1 },
+    hood: { map: ['...CC...', '..CCCC..', '.CCCCCC.', 'CC....CC'], pal: {}, dy: 1 },
+    wizard: { map: ['....c...', '...cc...', '...CC...', '..CCCC..', '.CCCCCC.', 'CCCCCCCC'], pal: {}, dy: 2 },
+    circlet: { map: ['cccccccc'], pal: {}, dy: -1 },
+    crown: { map: ['G.GG.G.G', 'GGGGGGGG', 'GcGGGGcG'], pal: { G: '#f1c40f' }, dy: 0 },
+    feather: { map: ['.....G..', '....GG..', '.CCCCC..', 'CCCCCCCC'], pal: { G: '#2ecc71' }, dy: 1 },
+    bandana: { map: ['cccccccc', '......cc'], pal: {}, dy: -1 },
+    cap: { map: ['..CCCC..', '.CCCCCC.', 'CCCCCCCC'], pal: {}, dy: 1 },
+    mitre: { map: ['...WW...', '..WcWW..', '..WWWW..', '.WWWWWW.'], pal: { W: '#fdfefe' }, dy: 2 },
+    halo: { map: ['.GGGGGG.', 'G......G'], pal: { G: '#f7dc6f' }, dy: -3 },
+    horns: { map: ['K......K', 'KK....KK', '.K....K.'], pal: { K: '#2c2c2c' }, dy: 1 },
+    plume: { map: ['....cc..', '...cc...', '..MMMM..', '.MMMMMM.', 'MMMMMMMM'], pal: { M: '#95a5a6' }, dy: 2 },
+    fur: { map: ['.FFFFFF.', 'FFFFFFFF', 'FFFFFFFF'], pal: { F: '#8b5a2b' }, dy: 1 },
+    goggles: { map: ['GGGGGGGG', 'GAAGGAAG'], pal: { G: '#2c2c2c', A: '#74b9ff' }, dy: -1 },
+    mask: { map: ['KKKKKKKK', 'KK.KK.KK'], pal: { K: '#1c1c1c' }, dy: -1 },
+    ribbon: { map: ['RR....RR', 'RRRppRRR', 'RR....RR'], pal: { R: '#ff5c8a', p: '#ffd1dc' }, dy: 1 },
+    flower: { map: ['......F.', '.....FYF', '......F.'], pal: { F: '#ff8fc8', Y: '#ffe066' }, dy: 2 },
+    catears: { map: ['H......H', 'HH....HH'], pal: {}, dy: 0 },
+    tophat: { map: ['..KKKK..', '..KKKK..', '..KKKK..', '..KcKK..', 'KKKKKKKK'], pal: { K: '#1c1c1c' }, dy: 1 },
+  };
+  // 무기 (오른손 쪽에 그림). W날 K손잡이 G장식 O보주 S줄 M금속 B나무 P천 R밧줄
+  const WEAPONS = {
+    sword: ['.W.', '.W.', '.W.', '.W.', 'GGG', '.K.', '.K.'],
+    greatsword: ['.WW.', '.WW.', '.WW.', '.WW.', '.WW.', '.WW.', 'GGGG', '.KK.', '.KK.'],
+    rapier: ['W', 'W', 'W', 'W', 'W', 'G', 'K'],
+    katana: ['.W', '.W', 'W.', 'W.', 'W.', 'GG', 'K.', 'K.'],
+    bow: ['.B..', 'B.S.', 'B..S', 'B..S', 'B..S', 'B.S.', '.B..'],
+    longbow: ['.B..', 'B.S.', 'B..S', 'B..S', 'B..S', 'B..S', 'B..S', 'B.S.', '.B..'],
+    crossbow: ['BBBBB', '..K..', '..KK.', '..K..'],
+    staff: ['.OO.', 'OOOO', '.OO.', '.KK.', '..K.', '..K.', '..K.', '..K.', '..K.'],
+    wand: ['O', 'O', 'K', 'K', 'K'],
+    mace: ['.MM.', 'MMMM', 'MMMM', '.KK.', '..K.', '..K.', '..K.'],
+    hammer: ['MMMM', 'MMMM', '.KK.', '..K.', '..K.', '..K.'],
+    book: ['BBBB', 'BWWB', 'BWWB', 'BBBB'],
+    lute: ['..K.', '..K.', '..K.', '.BBB', 'BBBBB', 'BBBBB', '.BBB'],
+    harp: ['GG..', 'G.G.', 'G..G', 'G..G', 'G.G.', 'GG..'],
+    flute: ['K', 'K', 'K', 'K', 'K', 'K'],
+    drum: ['BBBB', 'WWWW', 'BBBB', 'BBBB'],
+    baton: ['W', 'W', 'K', 'K'],
+    fan: ['P.P.P', '.PPP.', '..P..'],
+    dagger: ['W', 'W', 'G', 'K'],
+    dual: ['W.W', 'W.W', 'G.G', 'K.K'],
+    fist: ['.SS', 'SSS'],
+    gauntlet: ['MMM', 'MMM', 'MMM'],
+    claws: ['W.W.W', '.MMM.'],
+    spear: ['.W.', 'WWW', '.W.', '.K.', '.K.', '.K.', '.K.', '.K.', '.K.', '.K.'],
+    scythe: ['WWWW', '...W', '..K.', '..K.', '..K.', '..K.', '..K.'],
+  };
+  const SHIELD = ['.MMM.', 'MMcMM', 'MMMMM', 'MMMMM', '.MMM.', '..M..'];
+  const WPAL = { W: '#dfe6ee', K: '#5a3a1a', G: '#f1c40f', O: '#74b9ff', S: '#f5f5f5', M: '#95a5a6', B: '#8b5a2b', P: '#ff8fc8' };
+
+  // ================= 사냥터 =================
+  const ZONES = [
+    { id: 0, name: '초원', lv: 1, power: 10, gold: [3, 8], exp: 12, mobs: ['🐺', '🐗', '🐍'] },
+    { id: 1, name: '숲', lv: 5, power: 30, gold: [8, 18], exp: 30, mobs: ['👺', '🕷️', '🦇'] },
+    { id: 2, name: '동굴', lv: 10, power: 65, gold: [15, 35], exp: 70, mobs: ['💀', '🦎', '👹'] },
+    { id: 3, name: '폐허', lv: 18, power: 120, gold: [30, 60], exp: 150, mobs: ['🗿', '👻', '🧟'] },
+    { id: 4, name: '용의 둥지', lv: 28, power: 220, gold: [60, 120], exp: 320, mobs: ['🐉', '🔥', '🐲'] },
+  ];
+
+  // ================= 상태 =================
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+  let ch = null, speedIdx = 0, resetting = false, anim = { action: null, until: 0, mob: '' };
+  const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+  const needExp = lv => Math.floor(40 * Math.pow(1.22, lv - 1));
+
+  const defaultChar = (name, fam, hair, hairColor, skin) => ({
+    name, fam, hair, hairColor, skin, tier: 0, t2: null, t3: null,
+    level: 1, exp: 0, gold: 50, last: Date.now(),
+    hp: 100, sta: 100, hun: 80, mood: 80, resting: false,
+    stats: { 체력: 10, 힘: 5, 민첩: 5, 지력: 5, 신성: 5, 매력: 5, 기교: 5 },
+    weaponLv: 0, hunts: 0, trains: 0, zone: 0, potions: 1, bread: 2, log: [],
+    cos: { owned: [], head: null, cape: null, dye: null },
+  });
+  const famOf = c => FAMILIES.find(f => f.id === c.fam);
+  const t2Of = c => c.t2 ? T2[c.t2] : null;
+  const t3Of = c => (c.t2 && c.t3 != null) ? T3[c.t2][c.t3] : null;
+  const className = c => c.tier === 2 ? t3Of(c).name : c.tier === 1 ? t2Of(c).name : famOf(c).name + ' 견습';
+  const ageOf = c => c.tier === 2 ? '성인' : c.tier === 1 ? '15살' : '10살';
+  // 체력 스탯 → 생명/체력 최대치 (스탯 10일 때 각각 100)
+  const maxHp = c => 50 + Math.floor(c.stats.체력) * 5;
+  const maxSta = c => 80 + Math.floor(c.stats.체력) * 2;
+  const staPct = n => n * 100 / maxSta(ch);   // 절대 소모량 → 게이지 %
+  const hpPct = n => n * 100 / maxHp(ch);
+  const power = c => c.level * 3 + c.stats[famOf(c).stat] * 1.6 + c.stats.체력 * 0.5 + c.weaponLv * 8 + (c.tier * 15);
+
+  function save() { localStorage.setItem(SAVE_KEY, JSON.stringify(ch)); $('saveInfo').textContent = '저장됨 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }); }
+  const loadJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } };
+  function addDex(key) { const d = loadJSON(DEX_KEY, []); if (!d.includes(key)) { d.push(key); localStorage.setItem(DEX_KEY, JSON.stringify(d)); } }
+  function showMsg(t, ms = 1800) { const m = $('msg'); m.textContent = t; m.classList.add('show'); clearTimeout(m._t); m._t = setTimeout(() => m.classList.remove('show'), ms); }
+  function log(t) { ch.log.unshift(t); ch.log = ch.log.slice(0, 3); $('log').innerHTML = ch.log.map((l, i) => `<div style="opacity:${1 - i * .3}">${l}</div>`).join(''); }
+
+  // ================= 시간 경과 =================
+  function tick(dtReal, speed) {
+    const h = dtReal * speed / 3600000;
+    if (ch.resting) { ch.sta = clamp(ch.sta + 600 * h); ch.hp = clamp(ch.hp + 300 * h); ch.hun = clamp(ch.hun - 3 * h); if (ch.sta >= 100 && ch.hp >= 100) ch.resting = false; }
+    else { ch.sta = clamp(ch.sta + 20 * h); ch.hp = clamp(ch.hp + 5 * h); ch.hun = clamp(ch.hun - 6 * h); ch.mood = clamp(ch.mood - 3 * h); }
+    if (ch.hun <= 0) ch.hp = clamp(ch.hp - 5 * h, 1);
+  }
+
+  // ================= 액션 =================
+  function gainExp(n) {
+    ch.exp += n;
+    while (ch.exp >= needExp(ch.level) && ch.level < MAX_LEVEL) {
+      ch.exp -= needExp(ch.level); ch.level++;
+      ch.stats.체력 += 2; ch.stats[famOf(ch).stat] += 2; const o = STATS[Math.floor(Math.random() * STATS.length)]; ch.stats[o] += 1;
+      ch.hp = 100; showMsg(`🎉 레벨 업! Lv ${ch.level}`, 2500); log(`Lv ${ch.level} 달성! 체력+2 ${famOf(ch).stat}+2 ${o}+1`);
+    }
+    checkPromotion();
+  }
+  const busy = () => !ch || $('overlay').classList.contains('show');   // 캐릭터 생성 전이거나 전직 화면이 떠 있으면 조작을 막음
+  function act(kind) {
+    if (busy()) return;
+    if (ch.resting && kind !== 'rest') { showMsg('휴식 중이에요. 먼저 일어나세요'); return; }
+    switch (kind) {
+      case 'hunt': {
+        const z = ZONES[ch.zone];
+        if (ch.sta < staPct(20)) { showMsg('체력이 부족해요 (20 필요)'); return; }
+        if (ch.hp < hpPct(25)) { showMsg('생명이 너무 낮아요. 휴식하거나 물약을!'); return; }
+        if (ch.hun < 10) { showMsg('배가 너무 고파요'); return; }
+        ch.sta = clamp(ch.sta - staPct(20)); ch.hun = clamp(ch.hun - 8);
+        const mob = z.mobs[Math.floor(Math.random() * z.mobs.length)];
+        const p = power(ch) * (0.8 + Math.random() * 0.4) * (ch.mood > 60 ? 1.1 : ch.mood < 30 ? 0.85 : 1);
+        const winP = 1 / (1 + Math.exp(-(p - z.power) / 18));
+        anim = { action: 'hunt', until: Date.now() + 1800, mob };
+        if (Math.random() < winP) {
+          const g = z.gold[0] + Math.floor(Math.random() * (z.gold[1] - z.gold[0])); const e = Math.floor(z.exp * (0.9 + Math.random() * 0.3));
+          ch.gold += g; ch.hunts++; ch.mood = clamp(ch.mood + 4); ch.hp = clamp(ch.hp - hpPct(Math.floor(Math.random() * 12)), 1);
+          const drop = Math.random() < 0.08 ? (Math.random() < 0.5 ? (ch.potions++, ' 🧪물약 획득!') : (ch.bread++, ' 🍞빵 획득!')) : '';
+          log(`${z.name}: ${mob} 처치! +${e}exp +${g}G${drop}`); showMsg(`${mob} 승리! +${e}exp +${g}G`); gainExp(e);
+        } else {
+          ch.hp = clamp(ch.hp - hpPct(25 + Math.floor(Math.random() * 15)), 1); ch.mood = clamp(ch.mood - 10);
+          log(`${z.name}: ${mob}에게 패배… 생명 감소`); showMsg(`${mob}에게 당했어요… 😵`); anim.lose = true;
+        }
+        break;
+      }
+      case 'train': {
+        if (ch.sta < staPct(15)) { showMsg('체력이 부족해요 (15 필요)'); return; }
+        if (ch.hun < 10) { showMsg('배가 너무 고파요'); return; }
+        ch.sta = clamp(ch.sta - staPct(15)); ch.hun = clamp(ch.hun - 6); ch.trains++;
+        const main = famOf(ch).stat; const gain = 1 + (Math.random() < 0.3 ? 1 : 0);
+        ch.stats[main] += gain; const sub = STATS[Math.floor(Math.random() * STATS.length)]; ch.stats[sub] += 1;
+        const vit = gain / 2; ch.stats.체력 += vit; // 주 스탯 증가분의 1/2
+        const e = 5 + ch.level; anim = { action: 'train', until: Date.now() + 1500 };
+        log(`훈련: ${main}+${gain} 체력+${vit} ${sub}+1 (+${e}exp)`); showMsg(`💪 ${main} +${gain} · 체력 +${vit}`); gainExp(e);
+        break;
+      }
+      case 'rest':
+        ch.resting = !ch.resting; if (ch.resting) ch.mood = clamp(ch.mood + 5);
+        showMsg(ch.resting ? '모닥불 곁에서 휴식… 🔥' : '다시 일어났어요!'); break;
+      case 'eat':
+        if (ch.bread <= 0) { showMsg('빵이 없어요. 잡화점에서 구매!'); return; }
+        if (ch.hun >= 95) { showMsg('배가 불러요'); return; }
+        ch.bread--; ch.hun = clamp(ch.hun + 40); ch.mood = clamp(ch.mood + 5); anim = { action: 'eat', until: Date.now() + 1200 }; showMsg('🍞 냠냠 (남은 빵 ' + ch.bread + ')'); break;
+    }
+    updateUI(); save();
+  }
+
+  // ================= 전직 =================
+  function checkPromotion() {
+    if (ch.tier === 0 && ch.level >= T2_LEVEL) openPromotion2();
+    else if (ch.tier === 1 && ch.level >= T3_LEVEL) openPromotion3();
+  }
+  // 작은 미리보기 캔버스: 3D 가 되면 고해상도로 3D 모델을, 아니면 기존 2D 픽셀 캐릭터를 그린다
+  function drawPreview(c, look, age) {
+    if (G3 && G3.ok) { const w = c.width, h = c.height; c.width = 144; c.height = 192; if (G3.preview(c, look, age)) { c.classList.add('c3d'); return; } c.width = w; c.height = h; }
+    c.width = 36; c.height = 48; c.classList.remove('c3d'); renderChar(c.getContext('2d'), look, age, 18, 46, 2);
+  }
+  function choiceCanvas(look, age) { const c = document.createElement('canvas'); drawPreview(c, look, age); return c; }
+  function lookOf(c) { // 직업 외형 + 꾸미기 아이템
+    const l = baseLook(c), cos = c.cos || {};
+    if (cos.head) l.head = cos.head;
+    if (cos.dye) l.col = { ...l.col, C: cos.dye };
+    if (cos.cape) l.cape = cos.cape;
+    return l;
+  }
+  function baseLook(c) {
+    const base = { hair: c.hair, hairColor: c.hairColor, skin: c.skin };
+    if (c.tier === 0) { const f = famOf(c); return { ...base, armor: 'cloth', weapon: T2[f.t2[0]].weapon === 'sword' ? 'sword' : T2[f.t2[0]].weapon, head: 'none', col: { C: f.color, c: '#f5f5f5', P: '#5a4a3a' }, shield: false, orb: null }; }
+    const t2 = T2[c.t2];
+    if (c.tier === 1) return { ...base, armor: t2.armor, weapon: t2.weapon, head: t2.head, col: t2.col, shield: !!t2.shield, orb: t2.orb || null };
+    const t3 = T3[c.t2][c.t3]; return { ...base, armor: t2.armor, weapon: t3.weapon, head: t3.head, col: t3.col, shield: !!t3.shield, orb: t3.orb || null };
+  }
+  function openPromotion2() {
+    const f = famOf(ch); const ov = $('overlay'); let sel = 0;
+    const render = () => {
+      ov.innerHTML = `<h2>🎓 15살, 첫 번째 전직</h2><p>${f.name} 견습을 마쳤어요. 현재 직업을 유지하거나 파생 직업으로 갈 수 있어요.</p><div class="choices" id="chs"></div><button id="okBtn">이 길로 간다</button>`;
+      const box = ov.querySelector('#chs');
+      f.t2.forEach((id, i) => {
+        const t = T2[id]; const d = document.createElement('div'); d.className = 'choice' + (i === sel ? ' sel' : '');
+        d.appendChild(choiceCanvas({ hair: ch.hair, hairColor: ch.hairColor, skin: ch.skin, armor: t.armor, weapon: t.weapon, head: t.head, col: t.col, shield: !!t.shield }, 'teen'));
+        const tx = document.createElement('div'); tx.innerHTML = `<b>${t.name}${i === 0 ? ' (유지)' : ''}</b><small>${t.desc}<br>최종: ${T3[id].map(x => x.name).join(' · ')}</small>`; d.appendChild(tx);
+        d.onclick = () => { sel = i; render(); }; box.appendChild(d);
+      });
+      ov.querySelector('#okBtn').onclick = () => { ch.t2 = f.t2[sel]; ch.tier = 1; ov.classList.remove('show'); showMsg(`✨ ${T2[ch.t2].name}(으)로 전직!`, 3000); log(`15살: ${T2[ch.t2].name} 전직`); save(); updateUI(); };
+    };
+    render(); ov.classList.add('show');
+  }
+  function reqText(r) { if (!r) return '조건 없음'; return { stat: `${r.key} ${r.val} 이상`, hunt: `사냥 ${r.val}회 이상`, train: `훈련 ${r.val}회 이상`, gold: `${r.val}G 보유`, hp: `체력 스탯 ${r.val} 이상` }[r.type]; }
+  function reqOk(r) { if (!r) return true; return { stat: () => ch.stats[r.key] >= r.val, hunt: () => ch.hunts >= r.val, train: () => ch.trains >= r.val, gold: () => ch.gold >= r.val, hp: () => ch.stats.체력 >= r.val }[r.type](); }
+  function openPromotion3() {
+    const t2 = T2[ch.t2], list = T3[ch.t2]; const ov = $('overlay'); let sel = 0;
+    const render = () => {
+      ov.innerHTML = `<h2>👑 성인, 최종 전직</h2><p>${t2.name}의 길이 네 갈래로 나뉘어요. 조건을 만족한 직업만 고를 수 있어요.</p><div class="choices" id="chs"></div><button id="okBtn">이 길로 간다</button><p style="opacity:.7">조건 미달이면 더 키운 뒤 '직업트리'에서 다시 전직할 수 있어요</p><button id="laterBtn" style="background:transparent;color:#fff;box-shadow:none">나중에</button>`;
+      const box = ov.querySelector('#chs');
+      list.forEach((t, i) => {
+        const ok = reqOk(t.req); const d = document.createElement('div'); d.className = 'choice' + (i === sel ? ' sel' : '') + (ok ? '' : ' locked');
+        d.appendChild(choiceCanvas({ hair: ch.hair, hairColor: ch.hairColor, skin: ch.skin, armor: t2.armor, weapon: t.weapon, head: t.head, col: t.col, shield: !!t.shield, orb: t.orb }, 'adult'));
+        const tx = document.createElement('div'); tx.innerHTML = `<b>${t.name}</b><small>${t.desc}<br>${ok ? '✅ ' : '🔒 '}${reqText(t.req)}</small>`; d.appendChild(tx);
+        d.onclick = () => { if (ok) { sel = i; render(); } else showMsg('조건 미달: ' + reqText(t.req)); }; box.appendChild(d);
+      });
+      ov.querySelector('#okBtn').onclick = () => { ch.t3 = sel; ch.tier = 2; addDex(ch.t2 + ':' + sel); ov.classList.remove('show'); showMsg(`👑 ${list[sel].name}(으)로 최종 전직!`, 3500); log(`성인: ${list[sel].name} 최종 전직`); save(); updateUI(); };
+      ov.querySelector('#laterBtn').onclick = () => ov.classList.remove('show');
+    };
+    render(); ov.classList.add('show');
+  }
+
+  // ================= 렌더링 =================
+  function drawMapTo(c, rows, pal, x, y, s) {
+    for (let r = 0; r < rows.length; r++) for (let q = 0; q < rows[r].length; q++) { const k = rows[r][q]; if (k === '.') continue; c.fillStyle = pal[k] || '#f0f'; c.fillRect(Math.round(x + q * s), Math.round(y + r * s), Math.ceil(s), Math.ceil(s)); }
+  }
+  // look: {hair, hairColor, skin, armor, weapon, head, col{C,c,P}, shield, orb}; cx 중심x, by 바닥y
+  function renderChar(c, look, age, cx, by, s, frame = 0, opts = {}) {
+    let rows = BODY[age].map(r => r.split(''));
+    const w = rows[0].length;
+    if (look.armor === 'robe') rows = rows.map((r, i) => (i >= 6 && i < rows.length - 2) ? r.map(k => k === 'P' ? 'C' : k) : r);
+    if (look.armor === 'plate') { [6, 7].forEach(i => { if (rows[i]) { const l = rows[i].indexOf('C'), rr = rows[i].lastIndexOf('C'); if (l > 0) rows[i][l - 1] = 'c'; if (rr < w - 1) rows[i][rr + 1] = 'c'; } }); }
+    if (look.armor === 'leather') { rows[rows.length - 4] && (rows[rows.length - 4] = rows[rows.length - 4].map(k => k === 'P' ? 'c' : k)); }
+    HAIRS.find(h => h.id === look.hair).fn(w).forEach(([q, r]) => { if (rows[r] && q >= 0 && q < w && rows[r][q] === '.') rows[r][q] = 'H'; });
+    const pal = { S: look.skin, H: look.hairColor, E: '#1a1a1a', C: look.col.C, c: look.col.c, P: look.col.P, B: '#3a2a1a', K: '#222' };
+    const H = rows.length; const x0 = cx - (w * s) / 2, y0 = by - H * s;
+    const bob = opts.bob || 0;
+    // 방패(왼쪽)
+    if (look.cape) { c.fillStyle = look.cape; c.fillRect(Math.round(x0 + s), Math.round(y0 + 6 * s + bob), Math.ceil((w - 2) * s), Math.ceil((H - 9) * s)); }
+    if (look.shield) drawMapTo(c, SHIELD, { M: '#95a5a6', c: look.col.c }, x0 - 3 * s, y0 + 6 * s + bob, s);
+    drawMapTo(c, rows.map(r => r.join('')), pal, x0, y0 + bob, s);
+    // 무기(오른쪽)
+    const wp = WEAPONS[look.weapon]; if (wp) { const wpal = { ...WPAL, S: look.skin }; if (look.orb) wpal.O = look.orb; drawMapTo(c, wp, wpal, x0 + w * s - s, y0 + (look.weapon === 'fist' || look.weapon === 'gauntlet' || look.weapon === 'claws' ? 7 : 4) * s + bob, s); }
+    // 머리장식
+    const hd = HEADS[look.head]; if (hd) drawMapTo(c, hd.map, { C: look.col.C, c: look.col.c, H: look.hairColor, ...hd.pal }, x0 + (w - 8) / 2 * s, y0 - (hd.map.length - 1 - hd.dy) * s + bob, s);
+  }
+  // 캐릭터 위치/동작 (2D 와 3D 가 같은 식을 쓴다. 3D 는 소수 프레임으로 부드럽게 보간)
+  function charPose(t) {
+    const now = Date.now(), hunting = !!ch && anim.action === 'hunt' && now < anim.until, training = !!ch && anim.action === 'train' && now < anim.until, resting = !!ch && ch.resting;
+    let cx = 70;
+    if (hunting) cx = 60 + Math.sin(t * 0.8) * 6;
+    if (training) cx = 70 + Math.sin(t * 1.2) * 3;
+    return { cx, bob: resting ? 0 : Math.sin(t * 0.2) * 1, hunting, training, resting };
+  }
+  if (E3) { try { G3 = E3.create(cv, charPose); } catch (err) { G3 = null; } if (!G3) console.warn('WebGL 을 쓸 수 없어 2D 로 실행합니다'); else window.__erinn3d = G3; }
+  function px(x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+  function drawScene(t) {
+    const z = ZONES[ch.zone], hunting = anim.action === 'hunt' && Date.now() < anim.until;
+    const night = ch.resting;
+    const skies = [['#9ad8ff', '#7ed67e'], ['#7fb8a4', '#3f7a4a'], ['#3d3d4d', '#5a5a6a'], ['#b8a898', '#8a7a6a'], ['#3a1a1a', '#5a2a1a']];
+    const [sky, ground] = night ? ['#1a1f3a', '#2a3a2a'] : (hunting ? skies[ch.zone] : skies[0]);
+    px(0, 0, 160, 100, sky); px(0, 80, 160, 20, ground); px(0, 80, 160, 2, 'rgba(255,255,255,.25)');
+    if (night) { for (let i = 0; i < 14; i++) if ((t + i) % 3) px((i * 37 + 11) % 160, (i * 23 + 5) % 60, 2, 2, '#f5f3ce'); }
+    else if (!hunting) { px(130, 8, 14, 14, '#ffd93d'); const cx = (t * 0.3) % 200 - 40; px(cx, 16, 24, 8, '#fff'); px(cx + 6, 11, 14, 6, '#fff'); }
+    if (hunting) { if (ch.zone === 1) for (let i = 0; i < 5; i++) { px(i * 34 + 4, 44, 6, 36, '#5a3a1a'); px(i * 34 - 4, 30, 22, 20, '#2f6b3a'); } if (ch.zone === 2) { px(0, 0, 160, 14, '#2a2a3a'); for (let i = 0; i < 6; i++) px(i * 28 + 6, 14, 6, 10 + (i % 3) * 4, '#4a4a5a'); } if (ch.zone === 3) for (let i = 0; i < 4; i++) px(i * 42 + 8, 50, 10, 30, '#9a8a7a'); if (ch.zone === 4) for (let i = 0; i < 8; i++) px((i * 23 + t * 2) % 160, 10 + (i * 17 + t) % 60, 2, 2, '#ff6b35'); }
+    else { // 캠프
+      px(118, 76, 18, 5, '#5a3a1a'); px(122, 72, 10, 5, '#5a3a1a');
+      const f = t % 6 < 3 ? 1 : 0; px(124, 62 + f, 6, 10, '#ff8c42'); px(126, 58 + f * 2, 3, 6, '#ffd93d'); if (night) { ctx.fillStyle = 'rgba(255,180,80,.15)'; ctx.beginPath(); ctx.arc(127, 70, 26, 0, 7); ctx.fill(); }
+      px(20, 60, 24, 20, '#c9a227'); px(16, 64, 32, 4, '#a07a1a'); px(28, 48, 8, 14, '#c9a227'); // 텐트
+    }
+    // 캐릭터
+    const age = ch.tier === 2 ? 'adult' : ch.tier === 1 ? 'teen' : 'kid';
+    const pose = charPose(t), bob = Math.round(pose.bob), cx = Math.round(pose.cx);
+    if (!(G3 && G3.show(lookOf(ch), age, t, 80))) renderChar(ctx, lookOf(ch), age, cx, 80, 3, t, { bob });
+    if (hunting) { ctx.font = '22px sans-serif'; ctx.fillText(anim.mob, 108 + Math.round(Math.sin(t * 0.9) * 3), 76); if (t % 8 < 4) { ctx.strokeStyle = anim.lose ? '#ff3b3b' : '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(anim.lose ? 70 : 98, 50); ctx.lineTo(anim.lose ? 82 : 112, 66); ctx.stroke(); } }
+    ctx.font = '11px sans-serif'; ctx.fillStyle = '#fff';
+    if (ch.resting) { ctx.fillText('z', cx + 20 + (t % 20) / 4, 30 - (t % 20) / 3); }
+    if (anim.action === 'train' && Date.now() < anim.until) ctx.fillText('💪', cx + 18, 36);
+    if (anim.action === 'eat' && Date.now() < anim.until) ctx.fillText('🍞', cx - 28, 60);
+    if (ch.hun < 20 && !ch.resting) { ctx.fillStyle = '#fff'; ctx.fillRect(cx + 16, 20, 24, 14); ctx.fillStyle = '#222'; ctx.font = '10px sans-serif'; ctx.fillText('🍞?', cx + 18, 31); }
+    // 태그
+    ctx.font = '9px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(2, 2, 58, 12); ctx.fillStyle = '#333'; ctx.fillText(`${ageOf(ch)} · ${hunting ? z.name : '캠프'}`, 4, 11);
+  }
+  function updateUI() {
+    if (!ch) return;
+    $('hudName').textContent = ch.name; $('hudClass').textContent = className(ch);
+    $('hudLv').textContent = 'Lv ' + ch.level; $('hudGold').textContent = '💰 ' + ch.gold;
+    $('xpBar').style.width = (ch.level >= MAX_LEVEL ? 100 : ch.exp / needExp(ch.level) * 100) + '%';
+    $('bHp').style.width = ch.hp + '%'; $('bSta').style.width = ch.sta + '%'; $('bHun').style.width = ch.hun + '%'; $('bMood').style.width = ch.mood + '%';
+    $('nHp').textContent = `${Math.round(ch.hp * maxHp(ch) / 100)}/${maxHp(ch)}`; $('nSta').textContent = `${Math.round(ch.sta * maxSta(ch) / 100)}/${maxSta(ch)}`;
+    const main = famOf(ch).stat;
+    $('attrs').innerHTML = ['체력', ...STATS].map(k => `<span style="${k === main ? 'color:#c0392b' : ''}">${k} ${Math.floor(ch.stats[k])}</span>`).join('');
+    $('btnRest').querySelector('span').textContent = ch.resting ? '☀️' : '🔥';
+    $('btnRest').lastChild.textContent = ch.resting ? '일어나기' : '휴식';
+    $('speedBtn').textContent = '⏩ ' + SPEEDS[speedIdx] + 'x';
+    $('zoneBtn').textContent = '📍' + ZONES[ch.zone].name;
+    $('log').innerHTML = ch.log.map((l, i) => `<div style="opacity:${1 - i * .3}">${l}</div>`).join('');
+  }
+
+  // ================= 생성 / 패널 =================
+  function openCreate() {
+    const ov = $('overlay'); let fam = 0, hair = 0, hc = 0, sk = 0;
+    const render = () => {
+      const f = FAMILIES[fam];
+      ov.innerHTML = `<h2>🌱 10살 견습생 등록</h2><input id="nm" maxlength="8" placeholder="이름" value="${String(ov.querySelector('#nm')?.value ?? '나오').replace(/[<>&"'`]/g, '')}">
+        <div class="row" id="fams"></div><p id="fdesc"></p><div class="row" id="hairs"></div><div class="row" id="hcs"></div><div class="row" id="sks"></div>
+        <div style="display:flex;gap:10px;align-items:center"><canvas id="pv" width="36" height="48" style="width:54px;height:72px;background:rgba(0,0,0,.3);border-radius:8px"></canvas><button id="goBtn">모험 시작</button></div>`;
+      FAMILIES.forEach((x, i) => { const d = document.createElement('div'); d.className = 'chip' + (i === fam ? ' sel' : ''); d.textContent = x.icon + ' ' + x.name; d.onclick = () => { fam = i; render(); }; ov.querySelector('#fams').appendChild(d); });
+      ov.querySelector('#fdesc').textContent = `주 스탯 ${f.stat} · 2차: ${f.t2.map(i => T2[i].name).join(' / ')}`;
+      HAIRS.forEach((x, i) => { const d = document.createElement('div'); d.className = 'chip' + (i === hair ? ' sel' : ''); d.textContent = x.name; d.onclick = () => { hair = i; render(); }; ov.querySelector('#hairs').appendChild(d); });
+      HAIR_COLORS.forEach((x, i) => { const d = document.createElement('div'); d.className = 'sw' + (i === hc ? ' sel' : ''); d.style.background = x; d.onclick = () => { hc = i; render(); }; ov.querySelector('#hcs').appendChild(d); });
+      SKINS.forEach((x, i) => { const d = document.createElement('div'); d.className = 'sw' + (i === sk ? ' sel' : ''); d.style.background = x; d.onclick = () => { sk = i; render(); }; ov.querySelector('#sks').appendChild(d); });
+      drawPreview(ov.querySelector('#pv'), { hair: HAIRS[hair].id, hairColor: HAIR_COLORS[hc], skin: SKINS[sk], armor: 'cloth', weapon: T2[f.t2[0]].weapon, head: 'none', col: { C: f.color, c: '#f5f5f5', P: '#5a4a3a' } }, 'kid');
+      ov.querySelector('#goBtn').onclick = () => { ch = defaultChar(ov.querySelector('#nm').value.replace(/[<>&"'`]/g, '').trim() || '나오', f.id, HAIRS[hair].id, HAIR_COLORS[hc], SKINS[sk]); ov.classList.remove('show'); log(`${ch.name}, ${f.name} 견습생으로 모험을 시작!`); save(); updateUI(); };
+    };
+    render(); ov.classList.add('show');
+  }
+  function openTree() {
+    if (busy()) return;
+    const body = $('treeBody'); body.innerHTML = ''; const dex = loadJSON(DEX_KEY, []);
+    const f = famOf(ch);
+    const info = document.createElement('div'); info.className = 'note';
+    info.innerHTML = `<b>${ch.name}</b> · ${ageOf(ch)} · ${className(ch)} · 전투력 ${Math.floor(power(ch))}<br>사냥 ${ch.hunts}회 · 훈련 ${ch.trains}회 · 1차 전직 Lv${T2_LEVEL} · 최종 전직 Lv${T3_LEVEL}`; body.appendChild(info);
+    if (ch.tier === 1 && ch.level >= T3_LEVEL) { const b = document.createElement('button'); b.textContent = '👑 최종 전직하기'; b.style.margin = '6px 0'; b.onclick = () => { $('tree').classList.remove('show'); openPromotion3(); }; body.appendChild(b); }
+    FAMILIES.forEach(fm => {
+      const d = document.createElement('div'); d.className = 'tree';
+      let html = `<div class="${fm.id === ch.fam ? 'cur' : ''}"><b>${fm.icon} ${fm.name}</b> (주 스탯 ${fm.stat})</div>`;
+      fm.t2.forEach((id, i) => {
+        const t = T2[id]; html += `<div class="t2 ${ch.t2 === id ? 'cur' : ''}">${i === 0 ? '↳ (유지) ' : '↳ '}${t.name} <span style="opacity:.6">${t.desc}</span></div>`;
+        html += `<div class="t3">` + T3[id].map((x, j) => `<span class="${ch.t2 === id && ch.t3 === j ? 'cur' : dex.includes(id + ':' + j) ? 'got' : ''}" title="${reqText(x.req)}">${x.name}</span>`).join(' · ') + `</div>`;
+      });
+      d.innerHTML = html; body.appendChild(d);
+    });
+    const note = document.createElement('div'); note.className = 'note'; note.innerHTML = `최종 직업 ${dex.length}/72 달성. 노란색 = 현재, 초록색 = 달성한 적 있음. 최종 직업 이름 위에 마우스를 올리면 조건이 보여요.`; body.appendChild(note);
+    $('tree').classList.add('show');
+  }
+  function openShop() {
+    if (busy()) return;
+    const body = $('shopBody'); body.innerHTML = ''; $('shopGold').textContent = `💰 ${ch.gold}`;
+    const wCost = 60 * (ch.weaponLv + 1) * (ch.weaponLv + 1);
+    const rows = [
+      { icon: '🍞', name: '빵', sub: `포만 +40 · 보유 ${ch.bread}`, cost: 12, fn: () => { ch.bread++; } },
+      { icon: '🧪', name: '회복 물약', sub: `생명 50% 회복 · 보유 ${ch.potions}`, cost: 35, fn: () => { ch.potions++; } },
+      { icon: '💊', name: '물약 사용', sub: '보유 물약으로 생명 50% 회복', cost: 0, dis: ch.potions <= 0, fn: () => { ch.potions--; ch.hp = clamp(ch.hp + 50); } },
+      { icon: '🎵', name: '여관 공연 관람', sub: '기분 +30', cost: 25, fn: () => { ch.mood = clamp(ch.mood + 30); } },
+      { icon: '⚒️', name: `무기 강화 +${ch.weaponLv + 1}`, sub: `전투력 +8 (현재 +${ch.weaponLv})`, cost: wCost, dis: ch.weaponLv >= 10, fn: () => { ch.weaponLv++; } },
+    ];
+    rows.forEach(r => {
+      const row = document.createElement('div'); row.className = 'shop-row';
+      row.innerHTML = `<span style="font-size:18px">${r.icon}</span><div class="nm">${r.name}<small>${r.sub}</small></div>`;
+      const b = document.createElement('button'); b.textContent = r.cost ? `${r.cost}G` : '사용'; b.disabled = r.dis || ch.gold < r.cost;
+      b.onclick = () => { ch.gold -= r.cost; r.fn(); showMsg(`${r.name} 완료`); save(); updateUI(); openShop(); }; row.appendChild(b); body.appendChild(row);
+    });
+    const sec = t => { const h = document.createElement('div'); h.className = 'sec-title'; h.textContent = t; body.appendChild(h); };
+    const mk = (icon, name, sub, label, dis, fn) => {
+      const row = document.createElement('div'); row.className = 'shop-row';
+      if (typeof icon === 'string') row.innerHTML = icon; else row.appendChild(icon);
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.innerHTML = `${name}<small>${sub}</small>`; row.appendChild(nm);
+      const b = document.createElement('button'); b.textContent = label; b.disabled = dis; b.onclick = () => { fn(); save(); updateUI(); openShop(); }; row.appendChild(b); body.appendChild(row);
+    };
+    const sw = col => `<span style="width:20px;height:20px;border-radius:50%;background:${col};border:2px solid rgba(255,255,255,.5);flex:none"></span>`;
+    const pay = (cost, fn) => () => { ch.gold -= cost; fn(); };
+    const cos = ch.cos;
+    sec('💇 미용실 (헤어 변경 40G · 염색 30G)');
+    HAIRS.forEach(hs => { if (hs.id !== ch.hair) mk('<span style="font-size:18px">✂️</span>', hs.name, '머리 모양 변경', '40G', ch.gold < 40, pay(40, () => { ch.hair = hs.id; showMsg(`${hs.name}(으)로 변신!`); })); });
+    DYE_HAIR.forEach(col => { if (col !== ch.hairColor) mk(sw(col), '머리 염색약', '머리색 변경', '30G', ch.gold < 30, pay(30, () => { ch.hairColor = col; showMsg('머리를 염색했어요'); })); });
+    sec('👕 의상 염색 (60G)');
+    if (cos.dye) mk('<span style="font-size:18px">🧽</span>', '염색 제거', '직업 기본 색으로', '무료', false, () => { cos.dye = null; });
+    DYE_CLOTH.forEach(([n, col]) => { if (col !== cos.dye) mk(sw(col), `${n} 염색약`, '상의 색 변경 (전직해도 유지)', '60G', ch.gold < 60, pay(60, () => { cos.dye = col; showMsg(`${n}색으로 염색!`); })); });
+    sec('👒 머리 장식 (구매 후 자유 착용)');
+    COS_HEADS.forEach(([id, n, price]) => {
+      const cvs = document.createElement('canvas'); cvs.width = 24; cvs.height = 18; cvs.style.cssText = 'width:32px;height:24px;flex:none;image-rendering:pixelated';
+      let icon3d = false;
+      if (G3 && G3.ok) { cvs.width = 128; cvs.height = 96; icon3d = G3.preview(cvs, { ...lookOf(ch), head: id }, 'adult', { head: true }); if (icon3d) cvs.style.imageRendering = 'auto'; else { cvs.width = 24; cvs.height = 18; } }
+      if (!icon3d) { const hd = HEADS[id]; drawMapTo(cvs.getContext('2d'), hd.map, { C: '#aaa', c: '#e74c3c', H: ch.hairColor, ...hd.pal }, 0, (18 - hd.map.length * 3) / 2, 3); }
+      const key = 'head:' + id, own = cos.owned.includes(key), on = cos.head === id;
+      mk(cvs, n, own ? (on ? '착용 중' : '보유 중') : '직업 머리장식 대신 착용', own ? (on ? '해제' : '착용') : price + 'G', !own && ch.gold < price,
+        () => { if (!own) { ch.gold -= price; cos.owned.push(key); cos.head = id; showMsg(`${n} 구매!`); } else cos.head = on ? null : id; });
+    });
+    sec('🧣 망토 (구매 후 자유 착용)');
+    COS_CAPES.forEach(([n, col, price]) => {
+      const key = 'cape:' + col, own = cos.owned.includes(key), on = cos.cape === col;
+      mk(sw(col), n, own ? (on ? '착용 중' : '보유 중') : '등 뒤에 두르는 망토', own ? (on ? '해제' : '착용') : price + 'G', !own && ch.gold < price,
+        () => { if (!own) { ch.gold -= price; cos.owned.push(key); cos.cape = col; showMsg(`${n} 구매!`); } else cos.cape = on ? null : col; });
+    });
+    $('shop').classList.add('show');
+  }
+  function cycleZone() {
+    if (busy()) return;
+    const avail = ZONES.filter(z => ch.level >= z.lv);
+    ch.zone = (ch.zone + 1) % avail.length;
+    const next = ZONES[avail.length] ? ` (다음: ${ZONES[avail.length].name} Lv${ZONES[avail.length].lv})` : '';
+    showMsg(`📍 사냥터: ${ZONES[ch.zone].name} (적 전투력 ${ZONES[ch.zone].power}, 내 전투력 ${Math.floor(power(ch))})${next}`, 3000); updateUI(); save();
+  }
+
+  $('btnHunt').onclick = () => act('hunt'); $('btnTrain').onclick = () => act('train'); $('btnRest').onclick = () => act('rest'); $('btnEat').onclick = () => act('eat');
+  $('btnShop').onclick = openShop; $('shopClose').onclick = () => $('shop').classList.remove('show');
+  $('btnTree').onclick = openTree; $('treeClose').onclick = () => $('tree').classList.remove('show');
+  $('zoneBtn').onclick = cycleZone;
+  $('speedBtn').onclick = () => { speedIdx = (speedIdx + 1) % SPEEDS.length; localStorage.setItem(SPEED_KEY, speedIdx); updateUI(); showMsg(`배속 ${SPEEDS[speedIdx]}x (체력 회복 속도)`); };
+  $('resetBtn').onclick = () => { if (confirm('정말 초기화할까요? 캐릭터가 사라져요.\n(최종 직업 달성 기록은 유지)')) { resetting = true; ch = null; localStorage.removeItem(SAVE_KEY); location.reload(); } };
+
+  // ================= 시작 =================
+  speedIdx = parseInt(localStorage.getItem(SPEED_KEY) || '0') || 0;
+  ch = loadJSON(SAVE_KEY, null);
+  if (!ch) openCreate();
+  else { if (!ch.cos) ch.cos = { owned: [], head: null, cape: null, dye: null }; const gap = Date.now() - ch.last; if (gap > 60000) { tick(gap, 1); showMsg(`${(gap / 3600000).toFixed(1)}시간 동안 자리를 비웠어요`, 3000); } ch.last = Date.now(); save(); checkPromotion(); }
+  updateUI();
+  let frame = 0;
+  setInterval(() => {
+    if (!ch) return; frame++;
+    if (frame % 10 === 0) { const now = Date.now(); tick(now - ch.last, SPEEDS[speedIdx]); ch.last = now; updateUI(); if (frame % 300 === 0) save(); }
+    drawScene(frame);
+  }, 100);
+  const saveNow = () => { if (!resetting && ch) save(); };
+  window.addEventListener('beforeunload', saveNow);
+  window.addEventListener('pagehide', saveNow);                                   // iOS 사파리는 beforeunload 가 오지 않는다
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
