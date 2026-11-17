@@ -11,6 +11,7 @@ const DEADLINE_EXTRA = 120;     // 초 (모달 시간 등 여유)
 const GRACE_MS = 30000;         // 연결 끊김 유예
 const COUNTDOWN_MS = 5000;
 const SCORE_CAP = 1500;         // 초당 최대 점수 증가
+const SURVIVE_PT = 1;           // 생존 1초당 점수 (클라이언트 SCORE.perSec 와 동일)
 const BOARD_MS = 900;           // 점수판 브로드캐스트 간격
 const SAVE_MS = 15000;          // 경기 중 상태 저장 간격
 const HEROES = ['raccoon', 'bear', 'dachs', 'duck', 'tiger'];
@@ -257,14 +258,20 @@ export class Room extends DurableObject {
   async checkEnd() {
     const s = this.s; if (!s || s.phase !== 'playing') return;
     const now = Date.now(), deadline = s.startAt + (s.len + DEADLINE_EXTRA) * 1000;
-    const done = this.plist().every(p => p.fin || (!this.isConn(p.pid) && p.discAt > 0 && now - p.discAt >= GRACE_MS));
-    if (done || now >= deadline) await this.endMatch(now >= deadline && !done ? 'deadline' : 'done');
+    const gone = (p) => p.fin || (!this.isConn(p.pid) && p.discAt > 0 && now - p.discAt >= GRACE_MS);
+    const all = this.plist(), left = all.filter(p => !gone(p));
+    const done = left.length === 0;
+    // 최후 1인: 2명 이상 경기에서 나머지가 모두 쓰러지거나 포기·이탈하면 자동 종료
+    // 생존자는 남은 시간만큼 생존 점수(1점/초)를 정산받음
+    const last = !done && all.length >= 2 && left.length === 1 && left[0].alive;
+    if (last) { const w = left[0]; w.lastBonus = Math.max(0, Math.round(s.len - w.gt)) * SURVIVE_PT; w.score += w.lastBonus; w.lastStand = true; }
+    if (done || last || now >= deadline) await this.endMatch(last ? 'last' : now >= deadline && !done ? 'deadline' : 'done');
   }
   async endMatch(reason) {
     const s = this.s; s.phase = 'ended';
     const st = (p) => (p.cleared ? 2 : p.alive ? 1 : 0);
     const ps = this.plist().sort((a, b) => b.score - a.score || st(b) - st(a) || (b.alive ? 1e9 : b.deadGt) - (a.alive ? 1e9 : a.deadGt) || a.j - b.j);
-    const ranking = ps.map((p, i) => ({ rank: i + 1, pid: p.pid, name: p.name, hero: p.hero, score: p.score, lv: p.lv, kills: p.kills, alive: p.alive, cleared: p.cleared, gt: Math.round(p.gt), conn: this.isConn(p.pid) }));
+    const ranking = ps.map((p, i) => ({ rank: i + 1, pid: p.pid, name: p.name, hero: p.hero, score: p.score, lv: p.lv, kills: p.kills, alive: p.alive, cleared: p.cleared, gt: Math.round(p.gt), conn: this.isConn(p.pid), lastStand: !!p.lastStand, lastBonus: p.lastBonus || 0 }));
     const season = seasonOf(); let recorded = false, stats = {};
     if (ranking.length >= 2 || this.dev) {
       try {
