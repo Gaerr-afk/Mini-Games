@@ -1,0 +1,13 @@
+{
+  "name": "toysquad2-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "장난감 특공대 2 경쟁전 중계 서버 (Cloudflare Workers + Durable Objects)",
+  "scripts": {
+    "dev": "wrangler dev --local --port 8787 --var DEV:1",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.163.0"
+  }
+}

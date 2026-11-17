@@ -1,0 +1,26 @@
+# 장난감 특공대 2 — 경쟁전 중계 서버 (Cloudflare Workers + Durable Objects, 무료 플랜용)
+# 비밀 값(API 키·토큰)은 이 파일에 넣지 않습니다. 배포 인증은 `npx wrangler login` 이 브라우저로 처리합니다.
+name = "toysquad2-relay"
+main = "index.js"
+compatibility_date = "2025-09-01"
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[durable_objects.bindings]]
+name = "LEAGUE"
+class_name = "League"
+
+# 무료 플랜은 SQLite 기반 Durable Object만 사용할 수 있습니다.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room", "League"]
+
+[vars]
+# 접속을 허용할 게임 주소(Origin) 목록 — 쉼표로 구분.
+#  - "http://localhost" 처럼 포트 없이 적으면 모든 포트(http://localhost:5500 등)를 허용합니다.
+#  - "null" 은 파일을 더블클릭해서 연 경우(file://) 입니다. 테스트용.
+ALLOWED_ORIGINS = "https://gaerr-afk.github.io,http://localhost,http://127.0.0.1,null"
+# 개발 모드(혼자 시작·가속 테스트 허용). 배포 시에는 반드시 "0".
+DEV = "0"
