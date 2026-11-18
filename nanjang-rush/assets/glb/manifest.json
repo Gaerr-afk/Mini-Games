@@ -1,0 +1,301 @@
+{
+  "version": 1,
+  "generated": "2026-11-18",
+  "units": "Blender units, not pre-scaled (character height 1.9). Game applies RENDER.charScale 0.68",
+  "up": "+Y",
+  "forward": "+Z (Blender -Y)",
+  "decorAlias": {
+    "flagpole": "prop_sports_flagpole.glb",
+    "gourd-pole": "prop_sports_gourd-pole.glb",
+    "hurdle": "prop_sports_hurdle.glb"
+  },
+  "runGroundSpeed": {
+    "blenderUnitsPerSec": 4.2,
+    "gameMetersPerSec": 2.86
+  },
+  "files": [
+    {
+      "file": "char_daon.glb",
+      "kind": "character",
+      "id": "daon",
+      "bytes": 400564,
+      "triangles": 7632,
+      "meshes": [
+        "body",
+        "bottom",
+        "face",
+        "hair",
+        "shoes",
+        "top"
+      ],
+      "sockets": [
+        "Socket_HandR",
+        "Socket_Head",
+        "Socket_Back",
+        "Socket_FootL",
+        "Socket_FootR",
+        "Socket_Overhead"
+      ],
+      "faceAtlas": {
+        "mesh": "face",
+        "material": "NR_Face",
+        "size": [
+          512,
+          256
+        ],
+        "cols": 4,
+        "rows": 2,
+        "cellU": 0.25,
+        "cellV": 0.5,
+        "cells": [
+          "기본",
+          "깜빡임",
+          "놀람",
+          "아픔",
+          "어지러움",
+          "힘줌",
+          "웃음",
+          "울상"
+        ]
+      }
+    },
+    {
+      "file": "char_sora.glb",
+      "kind": "character",
+      "id": "sora",
+      "bytes": 357944,
+      "triangles": 6974,
+      "meshes": [
+        "body",
+        "bottom",
+        "face",
+        "hair",
+        "hair_spike",
+        "shoes",
+        "top"
+      ],
+      "sockets": [
+        "Socket_HandR",
+        "Socket_Head",
+        "Socket_Back",
+        "Socket_FootL",
+        "Socket_FootR",
+        "Socket_Overhead"
+      ],
+      "faceAtlas": {
+        "mesh": "face",
+        "material": "NR_Face",
+        "size": [
+          512,
+          256
+        ],
+        "cols": 4,
+        "rows": 2,
+        "cellU": 0.25,
+        "cellV": 0.5,
+        "cells": [
+          "기본",
+          "깜빡임",
+          "놀람",
+          "아픔",
+          "어지러움",
+          "힘줌",
+          "웃음",
+          "울상"
+        ]
+      },
+      "hideWhenHelmet": [
+        "hair_spike"
+      ]
+    },
+    {
+      "file": "anim_common.glb",
+      "kind": "animations",
+      "id": "common",
+      "bytes": 114052,
+      "triangles": 0,
+      "meshes": [],
+      "clips": [
+        {
+          "name": "Run",
+          "frames": 20,
+          "duration": 0.6667,
+          "loop": true,
+          "bones": "all"
+        },
+        {
+          "name": "Idle",
+          "frames": 40,
+          "duration": 1.3333,
+          "loop": true,
+          "bones": "all"
+        },
+        {
+          "name": "Jump",
+          "frames": 16,
+          "duration": 0.5,
+          "loop": false,
+          "bones": "all"
+        },
+        {
+          "name": "Slide",
+          "frames": 18,
+          "duration": 0.5667,
+          "loop": false,
+          "bones": "all"
+        },
+        {
+          "name": "Swing",
+          "frames": 14,
+          "duration": 0.4333,
+          "loop": false,
+          "bones": "upper"
+        },
+        {
+          "name": "Shoot",
+          "frames": 10,
+          "duration": 0.3,
+          "loop": false,
+          "bones": "upper"
+        },
+        {
+          "name": "Stagger",
+          "frames": 12,
+          "duration": 0.3667,
+          "loop": false,
+          "bones": "all"
+        },
+        {
+          "name": "Fall",
+          "frames": 14,
+          "duration": 0.4333,
+          "loop": false,
+          "bones": "all"
+        },
+        {
+          "name": "Down",
+          "frames": 20,
+          "duration": 0.6667,
+          "loop": true,
+          "bones": "all"
+        },
+        {
+          "name": "GetUp",
+          "frames": 14,
+          "duration": 0.4333,
+          "loop": false,
+          "bones": "all"
+        }
+      ],
+      "upperBodyBones": [
+        "Chest",
+        "Neck",
+        "Head",
+        "UpperArm.L",
+        "UpperArm.R",
+        "LowerArm.L",
+        "LowerArm.R",
+        "Hand.L",
+        "Hand.R"
+      ]
+    },
+    {
+      "file": "item_bat.glb",
+      "kind": "item",
+      "id": "bat",
+      "bytes": 11824,
+      "triangles": 376,
+      "meshes": [
+        "bat"
+      ],
+      "attach": {
+        "socket": "Socket_HandR",
+        "rotationXDeg": -14
+      }
+    },
+    {
+      "file": "item_watergun.glb",
+      "kind": "item",
+      "id": "watergun",
+      "bytes": 18232,
+      "triangles": 480,
+      "meshes": [
+        "watergun"
+      ],
+      "attach": {
+        "socket": "Socket_HandR",
+        "rotationXDeg": -14
+      }
+    },
+    {
+      "file": "item_helmet.glb",
+      "kind": "item",
+      "id": "helmet",
+      "bytes": 22868,
+      "triangles": 608,
+      "meshes": [
+        "helmet"
+      ],
+      "attach": {
+        "socket": "Socket_Head",
+        "rotationXDeg": 0,
+        "hideMeshes": [
+          "hair_spike"
+        ]
+      }
+    },
+    {
+      "file": "item_drink.glb",
+      "kind": "item",
+      "id": "drink",
+      "bytes": 11860,
+      "triangles": 368,
+      "meshes": [
+        "drink"
+      ]
+    },
+    {
+      "file": "item_box.glb",
+      "kind": "itembox",
+      "id": "item_box",
+      "bytes": 17996,
+      "triangles": 376,
+      "meshes": [
+        "item_box"
+      ]
+    },
+    {
+      "file": "prop_sports_hurdle.glb",
+      "kind": "prop",
+      "id": "hurdle",
+      "bytes": 15452,
+      "triangles": 316,
+      "meshes": [
+        "hurdle"
+      ],
+      "world": "sports"
+    },
+    {
+      "file": "prop_sports_gourd-pole.glb",
+      "kind": "prop",
+      "id": "gourd-pole",
+      "bytes": 31440,
+      "triangles": 828,
+      "meshes": [
+        "gourd_pole"
+      ],
+      "world": "sports"
+    },
+    {
+      "file": "prop_sports_flagpole.glb",
+      "kind": "prop",
+      "id": "flagpole",
+      "bytes": 11692,
+      "triangles": 268,
+      "meshes": [
+        "flagpole"
+      ],
+      "world": "sports"
+    }
+  ]
+}

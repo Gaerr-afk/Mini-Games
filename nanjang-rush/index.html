@@ -2,19 +2,89 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
   <title>난장 러시</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe3f5; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe3f5; font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
     #app, canvas { position: fixed; inset: 0; display: block; }
-    #hud { position: fixed; top: 10px; left: 12px; padding: 8px 12px; border-radius: 10px; background: rgba(20, 24, 40, .55); color: #fff; font-size: 14px; line-height: 1.45; pointer-events: none; }
-    #hud b { font-size: 20px; }
-    #hud .warn { color: #ffb4b4; }
-    #help { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); padding: 6px 12px; border-radius: 8px; background: rgba(20, 24, 40, .45); color: #fff; font-size: 13px; pointer-events: none; }
+    #ui { position: fixed; inset: 0; pointer-events: none; color: #fff; }
+    #ui button { font: inherit; pointer-events: auto; touch-action: manipulation; }
+
+    /* HUD (02 8장) */
+    #rankBox { position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); text-align: center; text-shadow: 0 2px 0 rgba(0,0,0,.35); }
+    #rankN { font-size: 56px; font-weight: 900; line-height: 1; }
+    #rankOf { font-size: 20px; font-weight: 700; opacity: .9; margin-left: 2px; }
+    #lapT { font-size: 15px; font-weight: 700; margin-top: 2px; padding: 2px 10px; border-radius: 10px; background: rgba(20,24,40,.45); }
+    #hpBar { position: relative; width: 168px; height: 14px; margin: 4px auto 0; border-radius: 7px; background: rgba(20,24,40,.55); border: 2px solid rgba(255,255,255,.85); overflow: hidden; display: none; }
+    #hpFill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transition: width .15s linear, background .2s; }
+    #hpTxt { position: relative; display: block; font-size: 10px; line-height: 14px; font-weight: 800; text-shadow: 0 1px 0 rgba(0,0,0,.6); }
+    #hpBar.flash { animation: hpflash .35s ease-out; }
+    @keyframes hpflash { 0% { border-color: #fff; box-shadow: 0 0 0 4px rgba(229,72,77,.85); transform: scale(1.08); } 100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); transform: scale(1); } }
+    .tag .thp { display: block; position: absolute; left: 4px; right: 4px; bottom: -5px; height: 4px; border-radius: 2px; background: rgba(0,0,0,.5); overflow: hidden; }
+    .tag .thp u { display: block; height: 100%; width: 100%; }
+    .tag { padding-bottom: 3px; }
+    #minimap { position: absolute; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); border-radius: 14px; background: rgba(20,24,40,.35); }
+    #slots { position: absolute; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); display: flex; gap: 8px; }
+    .slot { width: 76px; height: 64px; border-radius: 12px; background: rgba(20,24,40,.45); border: 2px solid rgba(255,255,255,.35); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+    .slot.full { border-color: #fff; background: rgba(20,24,40,.65); }
+    .slot small { position: absolute; top: 3px; left: 6px; font-size: 11px; opacity: .8; }
+    .slot b { font-size: 13px; text-align: center; padding: 0 4px; }
+    .slot i { font-style: normal; font-size: 13px; font-weight: 800; color: #ffe27a; }
+    #tags { position: absolute; inset: 0; overflow: hidden; }
+    .tag { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; padding: 1px 6px 1px 3px; border-radius: 9px; background: rgba(20,24,40,.5); font-size: 12px; font-weight: 700; white-space: nowrap; will-change: transform; }
+    .tag i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid #fff; }
+    #countdown { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); font-size: 120px; font-weight: 900; color: #fff; text-shadow: 0 6px 0 rgba(0,0,0,.3); display: none; }
+    #countdown.pop { animation: pop .5s ease-out; }
+    @keyframes pop { from { transform: translate(-50%, -50%) scale(1.6); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+    #toast { position: absolute; top: 108px; left: 50%; transform: translateX(-50%); padding: 4px 14px; border-radius: 12px; background: rgba(20,24,40,.6); font-weight: 700; display: none; }
+    #perf { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); padding: 4px 10px; border-radius: 8px; background: rgba(0,0,0,.55); font: 12px/1.4 ui-monospace, monospace; text-align: center; }
+    #perf .warn { color: #ffb4b4; }
+
+    /* 터치 (02 7장) */
+    #touch { position: absolute; inset: 0; }
+    #steerZone { position: absolute; left: 0; top: 0; width: 50%; height: 100%; pointer-events: auto; touch-action: none; }
+    #steerBase { position: absolute; width: 100px; height: 100px; border-radius: 50%; background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.35); display: none; }
+    #steerBase.on { display: block; }
+    #steerKnob { position: absolute; left: 30px; top: 30px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.7); }
+    .tbtn { position: absolute; border-radius: 50%; border: 3px solid rgba(255,255,255,.8); background: rgba(20,24,40,.45); color: #fff; font-weight: 800; font-size: 16px; touch-action: none; }
+    .tbtn.on { background: rgba(255,255,255,.45); }
+    /* 버튼 3개 위치는 ui/touch.js가 tuning UI.buttonArc* 로 정한다 (오른쪽 아래 모서리 호) */
+    #btnSlide { font-size: 13px; white-space: nowrap; padding: 0; letter-spacing: -0.5px; }
+
+    /* 화면 */
+    .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(20,24,40,.6); pointer-events: auto; text-align: center; }
+    .screen h1 { font-size: 40px; margin: 0 0 4px; }
+    .screen h2 { font-size: 30px; margin: 0 0 8px; }
+    .screen .row { display: flex; gap: 14px; margin: 12px 0; }
+    .screen button { min-width: 150px; min-height: 56px; border-radius: 14px; border: 0; background: #fff; color: #1d2440; font-weight: 800; font-size: 17px; padding: 10px 16px; }
+    .screen button.ghost { background: rgba(255,255,255,.2); color: #fff; }
+    .pickBtn { display: flex; flex-direction: column; gap: 4px; }
+    .pickBtn small { font-weight: 500; font-size: 12px; opacity: .7; }
+    .hint { font-size: 13px; opacity: .8; }
+    .pickBtn .stats { display: grid; grid-template-columns: auto auto; gap: 2px 10px; margin-top: 4px; }
+    .pickBtn .st { display: flex; align-items: center; gap: 4px; font-size: 11px; }
+    .pickBtn .st em { font-style: normal; width: 26px; text-align: left; opacity: .75; }
+    .pickBtn .st s { display: flex; gap: 2px; text-decoration: none; }
+    .pickBtn .st i { width: 9px; height: 7px; border-radius: 2px; background: #3e63dd; }
+    .pickBtn .st i.off { background: #d6d9e3; }
+    #resultList { margin: 0; padding: 0 0 0 28px; text-align: left; font-size: 17px; line-height: 1.75; max-height: 60vh; overflow: auto; }
+    #resultList li.me { font-weight: 900; color: #ffe27a; }
+    #resultList i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; margin-right: 6px; vertical-align: -1px; }
+
+    /* 세로 화면 안내 (가로 고정, 01 2장) */
+    #rotate { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: #1d2440; color: #fff; font-size: 22px; font-weight: 800; text-align: center; pointer-events: auto; z-index: 10; }
+    #rotate .phone { width: 46px; height: 78px; margin: 0 auto 18px; border: 4px solid #fff; border-radius: 10px; animation: turn 1.6s ease-in-out infinite; }
+    @keyframes turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+    @media (orientation: portrait) { #rotate { display: flex; } }
   </style>
 </head>
 <body>
   <div id="app"></div>
+  <div id="ui"></div>
   <script type="module" src="./main.js"></script>
 </body>
 </html>
