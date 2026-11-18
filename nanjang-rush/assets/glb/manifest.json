@@ -241,7 +241,8 @@
         "rotationXDeg": 0,
         "hideMeshes": [
           "hair_spike"
-        ]
+        ],
+        "showPart": "part_vest.glb"
       }
     },
     {
@@ -296,6 +297,38 @@
         "flagpole"
       ],
       "world": "sports"
+    },
+    {
+      "file": "part_vest.glb",
+      "kind": "part",
+      "id": "vest",
+      "slot": "body-equip",
+      "bytes": 33652,
+      "triangles": 580,
+      "meshes": [
+        "part_vest"
+      ],
+      "skinned": true,
+      "showWhen": {
+        "bodySlot": "helmet"
+      },
+      "numberBacking": {
+        "color": "#4A4F5C",
+        "size": [
+          0.15,
+          0.135
+        ],
+        "cornerRadius": 0.012,
+        "bone": "Chest",
+        "offsetLocal": [
+          0,
+          -0.01,
+          -0.134
+        ],
+        "numberMaxHeight": 0.105,
+        "numberInsetMin": 0.015,
+        "onlyWhileWorn": true
+      }
     }
   ]
 }

@@ -52,6 +52,25 @@
     #steerKnob { position: absolute; left: 30px; top: 30px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.7); }
     .tbtn { position: absolute; border-radius: 50%; border: 3px solid rgba(255,255,255,.8); background: rgba(20,24,40,.45); color: #fff; font-weight: 800; font-size: 16px; touch-action: none; }
     .tbtn.on { background: rgba(255,255,255,.45); }
+    .tbtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; line-height: 1.1; cursor: pointer; }
+    .tbtn kbd, #hint kbd { font: 700 10px/1 ui-monospace, monospace; padding: 2px 4px; margin-top: 2px; border-radius: 4px; background: rgba(255,255,255,.85); color: #1d2440; }
+    #btnUse .ico { position: static; inset: auto; display: block; width: 34px; height: 34px; }
+    #touch { z-index: 2; }
+    .screen, #hint { z-index: 3; }
+    #btnUse .lbl { font-size: 11px; max-width: 80px; text-align: center; word-break: keep-all; }
+    #btnUse .cnt { font-size: 12px; color: #ffe27a; }
+    #btnUse.empty { opacity: .5; }
+    #btnUse.empty .lbl { font-size: 12px; }
+    #btnUse.pulse { animation: ipulse .6s ease-out; }
+    @keyframes ipulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,226,122,.9); } 40% { transform: scale(1.18); } 100% { transform: scale(1); box-shadow: 0 0 0 18px rgba(255,226,122,0); } }
+    #hint { position: absolute; inset: 0; pointer-events: none; display: none; }
+    .hintTip { position: absolute; padding: 6px 10px; border-radius: 10px; background: #ffe27a; color: #1d2440; font-size: 13px; font-weight: 800; white-space: nowrap; box-shadow: 0 3px 0 rgba(0,0,0,.25); animation: hintIn .35s ease-out; text-align: center; }
+    .hintTip.right { transform: translate(-100%, -50%); }
+    .hintTip.right::after { content: ''; position: absolute; right: -7px; top: 50%; margin-top: -7px; border: 7px solid transparent; border-right: 0; border-left-color: #ffe27a; }
+    .hintTip.top { transform: translate(-50%, -100%); }
+    .hintTip.top::after { content: ''; position: absolute; left: 50%; bottom: -7px; margin-left: -7px; border: 7px solid transparent; border-bottom: 0; border-top-color: #ffe27a; }
+    .hintTip.center { transform: translate(-50%, -50%); background: rgba(255,226,122,.95); }
+    @keyframes hintIn { from { opacity: 0; } to { opacity: 1; } }
     /* 버튼 3개 위치는 ui/touch.js가 tuning UI.buttonArc* 로 정한다 (오른쪽 아래 모서리 호) */
     #btnSlide { font-size: 13px; white-space: nowrap; padding: 0; letter-spacing: -0.5px; }
 
