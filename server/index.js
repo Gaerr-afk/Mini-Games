@@ -8,7 +8,11 @@ const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // I L O 0 1 제외
 const MAX_PLAYERS = 8;
 const MATCH_LEN = 600;          // 초
 const DEADLINE_EXTRA = 120;     // 초 (모달 시간 등 여유)
-const GRACE_MS = 30000;         // 연결 끊김 유예
+const GRACE_MS = 30000;         // 연결 끊김 유예 (경기 중)
+const LOBBY_GRACE_MS = 20000;   // 연결 끊김 유예 (대기실: 앱 전환으로 코드 공유 등)
+const EMPTY_ROOM_MS = 600000;   // 만들고 아무도 들어오지 않은 방 정리
+const LAST_WAIT_MS = 1500;      // 최후 1인 확정 전 생존자의 최신 점수를 기다리는 시간
+const VOID_GT = 20;             // 이보다 짧은 게임 시간에 끝난 경기는 무효 (기록 안 함)
 const COUNTDOWN_MS = 5000;
 const SCORE_CAP = 1500;         // 초당 최대 점수 증가
 const SURVIVE_PT = 1;           // 생존 1초당 점수 (클라이언트 SCORE.perSec 와 동일)
@@ -58,11 +62,13 @@ export default {
         return json(await r.json(), 200, cors);
       }
       if (path === '/room/new') {
+        // 코드 생성 + 해당 방(Durable Object)을 미리 만들어 둔다 → 없는 코드로는 입장 불가
         for (let i = 0; i < 6; i++) {
           let code = ''; const rnd = crypto.getRandomValues(new Uint8Array(4));
           for (const b of rnd) code += CODE_CHARS[b % CODE_CHARS.length];
-          const info = await (await env.ROOM.get(env.ROOM.idFromName(code)).fetch('https://room/info')).json();
-          if (!info.players) return json({ ok: true, code }, 200, cors);
+          const r = await env.ROOM.get(env.ROOM.idFromName(code)).fetch('https://room/init', { method: 'POST', body: JSON.stringify({ code }) });
+          const j = await r.json();
+          if (j.ok) return json({ ok: true, code }, 200, cors);
         }
         return json({ ok: false, error: 'no_code' }, 503, cors);
       }
@@ -82,6 +88,7 @@ export default {
 };
 
 // ---------------- Room: 방 하나 (코드당 1개) ----------------
+// 대원별 종료 종류 fk: null(진행 중) | 'done'(살아서 끝냄: 10분 완주·클리어) | 'dead' | 'giveup' | 'left'(직접 나감·유예 초과)
 export class Room extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -91,10 +98,12 @@ export class Room extends DurableObject {
     ctx.blockConcurrencyWhile(async () => { this.s = (await ctx.storage.get('room')) || null; });
   }
   get dev() { return this.env.DEV === '1'; }
-  fresh(code) { return { v: 1, code, phase: 'lobby', host: null, theme: 0, seed: 0, startAt: 0, len: MATCH_LEN, match: 0, players: {}, last: null }; }
+  fresh(code) { return { v: 1, code, phase: 'lobby', host: null, theme: 0, seed: 0, startAt: 0, len: MATCH_LEN, match: 0, players: {}, last: null, createdAt: Date.now(), n0: 0, lastPid: null, lastAt: 0 }; }
   plist() { return Object.values(this.s.players).sort((a, b) => a.j - b.j); }
   sockets(pid) { return this.ctx.getWebSockets(pid); }
   isConn(pid, except) { return this.sockets(pid).some(w => w !== except && w.readyState === 1); }
+  // 경기 중 종료 종류 (연결 끊김 유예를 넘기면 'left')
+  fkOf(p, now = Date.now()) { return p.fk || (p.fin ? (p.alive ? 'done' : 'dead') : (!this.isConn(p.pid) && p.discAt > 0 && now - p.discAt >= GRACE_MS ? 'left' : null)); }
 
   async save(force) {
     if (!this.s) return;
@@ -106,7 +115,7 @@ export class Room extends DurableObject {
   broadcast(obj, exceptPid) {
     const msg = JSON.stringify(obj);
     for (const ws of this.ctx.getWebSockets()) {
-      const a = ws.deserializeAttachment(); if (exceptPid && a && a.pid === exceptPid) continue;
+      const a = ws.deserializeAttachment(); if (!a || !a.pid) continue; if (exceptPid && a.pid === exceptPid) continue;
       try { ws.send(msg); } catch (e) { /* 무시 */ }
     }
   }
@@ -118,23 +127,29 @@ export class Room extends DurableObject {
   boardView() {
     const now = Date.now();
     return { t: 'board', now, phase: this.s.phase, match: this.s.match,
-      p: this.plist().map(p => { const c = this.isConn(p.pid); return { pid: p.pid, name: p.name, hero: p.hero, score: p.score, lv: p.lv, alive: p.alive, gt: Math.round(p.gt * 10) / 10, conn: c, fin: p.fin, gone: !c && p.discAt > 0 && now - p.discAt >= GRACE_MS }; }) };
+      p: this.plist().map(p => { const c = this.isConn(p.pid), fk = this.fkOf(p, now); return { pid: p.pid, name: p.name, hero: p.hero, score: p.score, lv: p.lv, alive: p.alive, gt: Math.round(p.gt * 10) / 10, conn: c, fin: p.fin, fk, gone: fk === 'left' }; }) };
   }
   sendRoom() { this.broadcast({ t: 'room', now: Date.now(), room: this.roomView() }); }
   sendBoard() { this.lastBoard = Date.now(); this.broadcast(this.boardView()); }
-  resetStats(p) { Object.assign(p, { score: 0, lv: 1, kills: 0, alive: true, gt: 0, hp: 100, seq: -1, fin: false, cleared: false, deadGt: 0, flags: 0, evN: 0 }); }
+  resetStats(p) { Object.assign(p, { score: 0, lv: 1, kills: 0, alive: true, gt: 0, hp: 100, seq: -1, fin: false, fk: null, quit: false, cleared: false, deadGt: 0, flags: 0, evN: 0, wt: 0, lastStand: false, lastBonus: 0 }); }
 
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === '/info') return json({ players: this.s ? Object.keys(this.s.players).length : 0, phase: this.s ? this.s.phase : 'none' });
+    if (url.pathname === '/init' && req.method === 'POST') { // /room/new 가 방을 미리 만든다
+      if (this.s) return json({ ok: false, error: 'taken' });
+      let code = ''; try { code = String((await req.json()).code || ''); } catch (e) { /* 무시 */ }
+      this.s = this.fresh(code); await this.save(true); await this.schedule();
+      return json({ ok: true });
+    }
     if (url.pathname !== '/ws') return json({ error: 'not_found' }, 404);
-    const code = url.searchParams.get('code'), pid = url.searchParams.get('pid'), ver = +url.searchParams.get('ver');
+    const pid = url.searchParams.get('pid'), ver = +url.searchParams.get('ver');
     const pair = new WebSocketPair(), [client, server] = Object.values(pair);
     // 거절도 소켓을 연 뒤 메시지로 알림 (브라우저는 HTTP 오류 코드를 읽을 수 없음)
     const reject = (code4, err, msg) => { this.ctx.acceptWebSocket(server, ['_rej']); server.serializeAttachment({ pid: null }); this.send(server, { t: 'err', code: err, msg }); server.close(code4, err); return new Response(null, { status: 101, webSocket: client }); };
     if (ver !== PROTO) return reject(4001, 'version', `게임 버전이 서버와 다릅니다 (서버 v${PROTO}). 페이지를 새로고침하세요.`);
     if (!validPid(pid)) return reject(4004, 'bad_pid', '잘못된 접속 정보입니다.');
-    if (!this.s) this.s = this.fresh(code);
+    if (!this.s) return reject(4005, 'no_room', '방을 찾을 수 없습니다. 코드를 확인하세요.');
     const s = this.s, now = Date.now();
     let p = s.players[pid];
     if (!p) {
@@ -143,7 +158,7 @@ export class Room extends DurableObject {
       p = s.players[pid] = { pid, name: '', hero: 'raccoon', ready: false, j: now, discAt: 0 }; this.resetStats(p);
     }
     p.name = sanitizeName(url.searchParams.get('name'));
-    p.discAt = 0;
+    p.discAt = 0; // 유예 중 재접속: 방장·대원·준비 상태 그대로 복구
     // 같은 pid의 이전 연결은 교체
     for (const old of this.sockets(pid)) { old.serializeAttachment({ pid: null }); try { old.close(4009, 'replaced'); } catch (e) { /* 무시 */ } }
     this.ctx.acceptWebSocket(server, [pid]); server.serializeAttachment({ pid });
@@ -151,6 +166,7 @@ export class Room extends DurableObject {
     await this.save(true);
     this.send(server, { t: 'welcome', v: PROTO, now, pid, room: this.roomView(), last: s.last });
     if (s.phase === 'lobby') this.sendRoom(); else this.sendBoard();
+    await this.schedule();
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -177,6 +193,7 @@ export class Room extends DurableObject {
         s.startAt = now + COUNTDOWN_MS; s.match++;
         s.len = this.dev && m.len ? int(m.len, 10, MATCH_LEN) : MATCH_LEN;
         for (const q of this.plist()) { this.resetStats(q); q.discAt = 0; }
+        s.n0 = this.plist().length; s.lastPid = null; s.lastAt = 0;
         s.phase = 'countdown';
         await this.save(true);
         this.broadcast({ t: 'start', now, seed: s.seed, startAt: s.startAt, theme: s.theme, len: s.len, match: s.match, dev: this.dev, room: this.roomView() });
@@ -200,12 +217,14 @@ export class Room extends DurableObject {
         const alive = m.alive !== false;
         if (!alive && p.alive) p.deadGt = gt;
         p.alive = alive;
-        if (m.t === 'fin') { p.fin = true; p.cleared = !!m.cleared && alive; this.sendBoard(); await this.save(true); await this.checkEnd(); }
+        if (m.t === 'fin') { p.fin = true; p.cleared = !!m.cleared && alive; p.fk = alive ? 'done' : m.ff ? 'giveup' : 'dead'; this.sendBoard(); await this.save(true); await this.checkEnd(); }
+        else if (s.lastPid === p.pid) await this.checkEnd(true); // 최후 생존자의 최신 점수 도착 → 확정
         else { if (now - this.lastBoard >= BOARD_MS) this.sendBoard(); await this.save(false); }
         break;
       }
       case 'giveup': // 새로고침 등으로 로컬 경기를 잃은 경우: 마지막 점수로 종료
-        if ((s.phase === 'playing' || s.phase === 'countdown') && !p.fin) { p.fin = true; if (p.alive) { p.alive = false; p.deadGt = p.gt; } this.sendBoard(); await this.checkEnd(); }
+        if (s.phase === 'countdown') { await this.dropPlayer(p.pid, true); break; }
+        if (s.phase === 'playing' && !p.fin) { p.fin = true; p.fk = 'giveup'; if (p.alive) { p.alive = false; p.deadGt = p.gt; } this.sendBoard(); await this.save(true); await this.checkEnd(); }
         break;
       case 'ev':
         if (s.phase !== 'playing' || !EV_KINDS.includes(m.kind) || ++p.evN > 60) return;
@@ -225,16 +244,24 @@ export class Room extends DurableObject {
     if (this.isConn(a.pid, ws)) return; // 교체된 연결 (새 연결이 살아 있음)
     await this.dropPlayer(a.pid, false);
   }
+  pickHost(except) { const ps = this.plist().filter(q => q.pid !== except); const n = ps.find(q => this.isConn(q.pid)) || ps[0]; return n ? n.pid : null; }
+  // left: 직접 나감(유예 없음) / 아니면 연결 끊김(유예 후 처리)
   async dropPlayer(pid, left) {
     const s = this.s, p = s && s.players[pid]; if (!p) return;
-    if (s.phase === 'lobby') {
+    const now = Date.now();
+    if (s.phase === 'lobby' || (s.phase === 'countdown' && left)) {
+      if (!left) { p.discAt = now; await this.save(true); this.sendRoom(); await this.schedule(); return; } // 대기실 유예: 그대로 둔다
       delete s.players[pid];
-      if (s.host === pid) { const n = this.plist().find(q => this.isConn(q.pid)) || this.plist()[0]; s.host = n ? n.pid : null; }
+      if (s.host === pid || !s.players[s.host]) s.host = this.pickHost(pid);
       if (!Object.keys(s.players).length) { await this.cleanup(); return; }
-      await this.save(true); this.sendRoom();
+      if (s.phase === 'countdown') { // 카운트다운 중 이탈: 그냥 빠짐. 2명 미만이 되면 무효
+        if (s.n0 >= 2 && this.plist().length < 2) { await this.endMatch('void'); return; }
+        await this.save(true); this.broadcast({ t: 'room', now, room: this.roomView() }); this.sendBoard(); return;
+      }
+      await this.save(true); this.sendRoom(); await this.schedule();
     } else {
-      p.discAt = Date.now() - (left ? GRACE_MS : 0); // 직접 나가면 유예 없이
-      if (left && !p.fin) { p.fin = true; if (p.alive) { p.alive = false; p.deadGt = p.gt; } }
+      p.discAt = now - (left ? GRACE_MS : 0); // 직접 나가면 유예 없이
+      if (left) { p.quit = true; if (!p.fin) { p.fin = true; p.fk = 'left'; if (p.alive) { p.alive = false; p.deadGt = p.gt; } } }
       if (s.host === pid) { const n = this.plist().find(q => q.pid !== pid && this.isConn(q.pid)); if (n) s.host = n.pid; }
       await this.save(true); this.sendBoard(); await this.checkEnd(); await this.schedule();
     }
@@ -242,53 +269,91 @@ export class Room extends DurableObject {
   async cleanup() { this.s = null; await this.ctx.storage.deleteAlarm(); await this.ctx.storage.deleteAll(); }
 
   async schedule() {
-    const s = this.s; if (!s || s.phase === 'lobby') { await this.ctx.storage.deleteAlarm(); return; }
-    let t = s.startAt + (s.len + DEADLINE_EXTRA) * 1000;
-    if (s.phase === 'countdown') t = Math.min(t, s.startAt);
-    for (const p of this.plist()) if (!p.fin && p.discAt > 0 && !this.isConn(p.pid)) t = Math.min(t, p.discAt + GRACE_MS + 50);
-    await this.ctx.storage.setAlarm(Math.max(t, Date.now() + 50));
+    const s = this.s; if (!s) return;
+    const now = Date.now(); let t = Infinity;
+    if (s.phase === 'lobby') {
+      for (const p of this.plist()) if (p.discAt > 0 && !this.isConn(p.pid)) t = Math.min(t, p.discAt + LOBBY_GRACE_MS + 50);
+      if (!this.plist().length) t = Math.min(t, (s.createdAt || now) + EMPTY_ROOM_MS);
+    } else {
+      t = s.startAt + (s.len + DEADLINE_EXTRA) * 1000;
+      if (s.phase === 'countdown') t = Math.min(t, s.startAt);
+      for (const p of this.plist()) if (!p.fin && p.discAt > 0 && !this.isConn(p.pid)) t = Math.min(t, p.discAt + GRACE_MS + 50);
+      if (s.lastPid) t = Math.min(t, s.lastAt + LAST_WAIT_MS);
+    }
+    if (t === Infinity) await this.ctx.storage.deleteAlarm();
+    else await this.ctx.storage.setAlarm(Math.max(t, now + 50));
   }
   async alarm() {
     const s = this.s; if (!s) return;
     const now = Date.now();
+    if (s.phase === 'lobby') return this.lobbySweep();
     if (s.phase === 'countdown' && now >= s.startAt) { s.phase = 'playing'; await this.save(true); }
     if (s.phase === 'playing') { this.sendBoard(); await this.checkEnd(); }
     if (this.s && (this.s.phase === 'countdown' || this.s.phase === 'playing')) await this.schedule();
   }
-  async checkEnd() {
+  // 대기실: 유예를 넘긴 끊긴 대원 정리 · 방장 이전 · 빈 방 삭제
+  async lobbySweep() {
+    const s = this.s, now = Date.now(); let ch = false;
+    for (const p of this.plist()) if (p.discAt > 0 && !this.isConn(p.pid) && now - p.discAt >= LOBBY_GRACE_MS) { delete s.players[p.pid]; ch = true; }
+    if (!Object.keys(s.players).length) {
+      if (ch || now >= (s.createdAt || 0) + EMPTY_ROOM_MS || s.match > 0) { await this.cleanup(); return; }
+    } else {
+      const h = s.players[s.host];
+      if (!h || (h.discAt > 0 && !this.isConn(h.pid) && now - h.discAt >= LOBBY_GRACE_MS)) { s.host = this.pickHost(); ch = true; }
+    }
+    if (ch) { await this.save(true); this.sendRoom(); }
+    await this.schedule();
+  }
+  async checkEnd(force) {
     const s = this.s; if (!s || s.phase !== 'playing') return;
     const now = Date.now(), deadline = s.startAt + (s.len + DEADLINE_EXTRA) * 1000;
-    const gone = (p) => p.fin || (!this.isConn(p.pid) && p.discAt > 0 && now - p.discAt >= GRACE_MS);
-    const all = this.plist(), left = all.filter(p => !gone(p));
-    const done = left.length === 0;
-    // 최후 1인: 2명 이상 경기에서 나머지가 모두 쓰러지거나 포기·이탈하면 자동 종료
-    // 생존자는 남은 시간만큼 생존 점수(1점/초)를 정산받음
-    const last = !done && all.length >= 2 && left.length === 1 && left[0].alive;
-    if (last) { const w = left[0]; w.lastBonus = Math.max(0, Math.round(s.len - w.gt)) * SURVIVE_PT; w.score += w.lastBonus; w.lastStand = true; }
-    if (done || last || now >= deadline) await this.endMatch(last ? 'last' : now >= deadline && !done ? 'deadline' : 'done');
+    if (s.lastPid) { // 최후 1인 확정 대기 중
+      const w = s.players[s.lastPid];
+      if (!w || force || w.fin || now >= s.lastAt + LAST_WAIT_MS || now >= deadline) await this.endMatch('last');
+      return;
+    }
+    const all = this.plist(), kinds = all.map(p => this.fkOf(p, now));
+    const playing = all.filter((p, i) => !kinds[i]);
+    const done = playing.length === 0, anyDone = kinds.includes('done');
+    // 최후 1인: 2명 이상 경기에서 나머지가 모두 쓰러지거나 포기·이탈하면 자동 종료 (누군가 살아서 끝냈다면 적용 안 함 → 점수 순)
+    const last = !done && all.length >= 2 && playing.length === 1 && playing[0].alive && !anyDone;
+    if (last) {
+      const w = playing[0]; s.lastPid = w.pid; s.lastAt = now;
+      for (const ws of this.sockets(w.pid)) this.send(ws, { t: 'lastcall' }); // 최신 점수 요청 (구버전 클라이언트는 무시 → 시간 초과로 확정)
+      await this.save(true); await this.schedule(); return;
+    }
+    if (done || now >= deadline) await this.endMatch(now >= deadline && !done ? 'deadline' : 'done');
   }
   async endMatch(reason) {
-    const s = this.s; s.phase = 'ended';
+    const s = this.s, wasCountdown = s.phase === 'countdown'; s.phase = 'ended';
+    const all = this.plist(), maxGt = all.reduce((a, p) => Math.max(a, p.gt || 0), 0);
+    // 시작 직후(게임 시간 20초 미만 · 카운트다운 중) 끝난 경기는 무효: 최후 생존 보너스·시즌 기록 없음
+    if (reason === 'void' || wasCountdown || maxGt < Math.min(VOID_GT, s.len / 2)) reason = 'void';
+    if (reason === 'last') { const w = s.players[s.lastPid]; if (w) { w.lastBonus = Math.max(0, Math.round(s.len - w.gt)) * SURVIVE_PT; w.score += w.lastBonus; w.lastStand = true; } }
+    s.lastPid = null; s.lastAt = 0;
     const st = (p) => (p.cleared ? 2 : p.alive ? 1 : 0);
-    const ps = this.plist().sort((a, b) => b.score - a.score || st(b) - st(a) || (b.alive ? 1e9 : b.deadGt) - (a.alive ? 1e9 : a.deadGt) || a.j - b.j);
-    const ranking = ps.map((p, i) => ({ rank: i + 1, pid: p.pid, name: p.name, hero: p.hero, score: p.score, lv: p.lv, kills: p.kills, alive: p.alive, cleared: p.cleared, gt: Math.round(p.gt), conn: this.isConn(p.pid), lastStand: !!p.lastStand, lastBonus: p.lastBonus || 0 }));
+    // 최후 1인 종료면 생존자가 점수와 상관없이 1위, 나머지는 점수 순
+    const ls = (p) => (reason === 'last' && p.lastStand ? 1 : 0);
+    const ps = all.sort((a, b) => ls(b) - ls(a) || b.score - a.score || st(b) - st(a) || (b.alive ? 1e9 : b.deadGt) - (a.alive ? 1e9 : a.deadGt) || a.j - b.j);
+    const ranking = ps.map((p, i) => ({ rank: i + 1, pid: p.pid, name: p.name, hero: p.hero, score: p.score, lv: p.lv, kills: p.kills, alive: p.alive, cleared: p.cleared, gt: Math.round(p.gt), conn: this.isConn(p.pid), fk: this.fkOf(p), lastStand: !!p.lastStand, lastBonus: p.lastBonus || 0 }));
     const season = seasonOf(); let recorded = false, stats = {};
-    if (ranking.length >= 2 || this.dev) {
+    if (reason !== 'void' && (ranking.length >= 2 || this.dev)) {
       try {
         const r = await this.env.LEAGUE.get(this.env.LEAGUE.idFromName('season')).fetch('https://league/record', { method: 'POST', body: JSON.stringify({ season, n: ranking.length, results: ranking.map(r => ({ pid: r.pid, name: r.name, rank: r.rank, score: r.score })) }) });
         const j = await r.json(); stats = j.stats || {}; recorded = !!j.ok;
       } catch (e) { /* 기록 실패해도 결과는 보냄 */ }
     }
     for (const r of ranking) r.season = stats[r.pid] || null;
-    const end = { t: 'end', now: Date.now(), match: s.match, reason, season, recorded, n: ranking.length, ranking };
+    const end = { t: 'end', now: Date.now(), code: s.code, match: s.match, reason, season, recorded, n: ranking.length, ranking };
     s.last = end;
     this.broadcast(end);
-    // 재대결을 위해 대기실로 복귀 (끊긴 대원 정리)
+    // 재대결을 위해 대기실로 복귀: 직접 나간 대원은 제거, 끊긴 대원은 대기실 유예(재접속하면 결과를 받음)
     s.phase = 'lobby'; s.seed = 0; s.startAt = 0;
-    for (const p of this.plist()) { p.ready = false; if (!this.isConn(p.pid)) delete s.players[p.pid]; }
+    const now = Date.now();
+    for (const p of this.plist()) { p.ready = false; if (p.quit) delete s.players[p.pid]; else p.discAt = this.isConn(p.pid) ? 0 : now; }
     if (!Object.keys(s.players).length) { await this.cleanup(); return; }
-    if (!s.players[s.host]) s.host = this.plist()[0].pid;
-    await this.save(true); await this.ctx.storage.deleteAlarm(); this.sendRoom();
+    if (!s.players[s.host] || !this.isConn(s.host)) s.host = this.pickHost() || s.host;
+    await this.save(true); this.sendRoom(); await this.schedule();
   }
 }
 
